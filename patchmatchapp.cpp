@@ -13,6 +13,8 @@ PatchMatchApp::PatchMatchApp()
     menu_file_save = GTK_WIDGET(gtk_builder_get_object(builder, "menu_file_save"));
     menu_file_save_as = GTK_WIDGET(gtk_builder_get_object(builder, "menu_file_save_as"));
     menu_file_quit = GTK_WIDGET(gtk_builder_get_object(builder, "menu_file_quit"));
+    gtk_widget_add_events(drawing_area, GDK_POINTER_MOTION_MASK | 
+                          GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
     // Connect signals
     g_signal_connect(G_OBJECT(menu_file_open), "activate", G_CALLBACK(PatchMatchApp::cb_menu_file_open), this);
     g_signal_connect(G_OBJECT(menu_file_save), "activate", G_CALLBACK(PatchMatchApp::cb_menu_file_save), this);
@@ -20,10 +22,15 @@ PatchMatchApp::PatchMatchApp()
     g_signal_connect(G_OBJECT(menu_file_quit), "activate", G_CALLBACK(PatchMatchApp::cb_menu_file_quit), this);
     g_signal_connect(G_OBJECT(main_window), "destroy", G_CALLBACK(gtk_main_quit), NULL);
     g_signal_connect(G_OBJECT(drawing_area), "draw", G_CALLBACK(PatchMatchApp::cb_draw), this);
+    g_signal_connect(G_OBJECT(drawing_area), "button-press-event", G_CALLBACK(PatchMatchApp::cb_button_pressed), this);
+    g_signal_connect(G_OBJECT(drawing_area), "button-release-event", G_CALLBACK(PatchMatchApp::cb_button_released), this);
+    g_signal_connect(G_OBJECT(drawing_area), "motion-notify-event", G_CALLBACK(PatchMatchApp::cb_motion_notify), this);
     // Other initializations
     filename = NULL;
-    image = NULL;
-    
+    source = NULL;
+    target = NULL;
+    fixed_zones = new std::vector<FixedZone>();
+    // Lock & Load
     gtk_widget_show_all(main_window);
     g_object_unref(G_OBJECT(builder));
 }
@@ -32,11 +39,14 @@ PatchMatchApp::~PatchMatchApp()
 {
     if(filename != NULL)
         delete filename;
-    if(image != NULL)
-        g_object_unref(image);
+    if(target != NULL)
+        g_object_unref(target);
+    if(source != NULL)
+        g_object_unref(source);
+    delete fixed_zones;
 }
 
-void PatchMatchApp::cb_menu_file_open(GtkWidget* widget, gpointer *app)
+void PatchMatchApp::cb_menu_file_open(GtkWidget* widget, gpointer app)
 {
     GtkWidget *dialog;
     GtkFileChooserAction action = GTK_FILE_CHOOSER_ACTION_OPEN;
@@ -57,13 +67,13 @@ void PatchMatchApp::cb_menu_file_open(GtkWidget* widget, gpointer *app)
     gtk_widget_destroy (dialog);
 }
 
-void PatchMatchApp::cb_menu_file_save(GtkWidget* widget, gpointer *app)
+void PatchMatchApp::cb_menu_file_save(GtkWidget* widget, gpointer app)
 {
     PatchMatchApp *self = (PatchMatchApp*) app;
     self->saveFile();
 }
 
-void PatchMatchApp::cb_menu_file_save_as(GtkWidget* widget, gpointer *app)
+void PatchMatchApp::cb_menu_file_save_as(GtkWidget* widget, gpointer app)
 {
     GtkWidget *dialog;
     GtkFileChooserAction action = GTK_FILE_CHOOSER_ACTION_SAVE;
@@ -85,28 +95,46 @@ void PatchMatchApp::cb_menu_file_save_as(GtkWidget* widget, gpointer *app)
     gtk_widget_destroy(dialog);
 }
 
-void PatchMatchApp::cb_menu_file_quit(GtkWidget* widget, gpointer *app)
+void PatchMatchApp::cb_menu_file_quit(GtkWidget* widget, gpointer app)
 {
     PatchMatchApp *self = (PatchMatchApp*) app;
     gtk_widget_destroy(self->main_window);
 }
 
-gboolean PatchMatchApp::cb_draw(GtkWidget *widget, cairo_t *cr, gpointer *app)
+gboolean PatchMatchApp::cb_draw(GtkWidget *widget, cairo_t *cr, gpointer app)
 {
     guint width, height;
 
     PatchMatchApp *self = (PatchMatchApp*) app;
-    if(self->image != NULL)
+    if(self->target != NULL)
     {
         width = gtk_widget_get_allocated_width(widget);
         height = gtk_widget_get_allocated_height(widget);
-        double scale = fmin(width/(double) gdk_pixbuf_get_width(self->image), 
-                           height/(double) gdk_pixbuf_get_height(self->image));
+        double scale = fmin(width/(double) gdk_pixbuf_get_width(self->target), 
+                           height/(double) gdk_pixbuf_get_height(self->target));
         cairo_scale(cr, scale, scale); 
-        gdk_cairo_set_source_pixbuf(cr, self->image, 0, 0);
+        gdk_cairo_set_source_pixbuf(cr, self->target, 0, 0);
         cairo_paint(cr);
     }
     return FALSE;
+}
+
+void PatchMatchApp::cb_button_pressed(GtkWidget *widget, GdkEvent *event, gpointer app)
+{
+    GdkEventButton *e = (GdkEventButton*) event;
+    printf("Button pressed at (%lf,%lf)\n", e->x, e->y);
+}
+
+void PatchMatchApp::cb_button_released(GtkWidget *widget, GdkEvent *event, gpointer app)
+{
+    GdkEventButton *e = (GdkEventButton*) event;
+    printf("Button released at (%lf,%lf)\n", e->x, e->y);
+}
+
+void PatchMatchApp::cb_motion_notify(GtkWidget *widget, GdkEvent *event, gpointer app)
+{
+    GdkEventMotion *e = (GdkEventMotion*) event;
+    printf("Mouse moved at (%lf,%lf)\n", e->x, e->y);
 }
 
 void PatchMatchApp::openFile(const char *filename)
@@ -118,12 +146,12 @@ void PatchMatchApp::openFile(const char *filename)
         delete this->filename;
         this->filename = NULL;
     }
-    if(image != NULL)
+    if(source != NULL)
     {
-        g_object_unref(image);
-        image = NULL;
+        g_object_unref(source);
+        source = NULL;
     }
-    image = gdk_pixbuf_new_from_file(filename, &error);
+    source = gdk_pixbuf_new_from_file(filename, &error);
     if(error != NULL)
     {
         GtkWidget *dialog;

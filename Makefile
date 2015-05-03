@@ -12,3 +12,6 @@ patchmatch: $(OBJECTS)
 
 .cpp.o:
 	$(CC) $(CFLAGS) $< -o $@
+
+clean:
+	rm *.o patchmatch
