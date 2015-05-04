@@ -30,6 +30,7 @@ PatchMatchApp::PatchMatchApp()
     source = NULL;
     target = NULL;
     fixed_zones = new std::vector<FixedZone>();
+    button_pressed = false;
     // Lock & Load
     gtk_widget_show_all(main_window);
     g_object_unref(G_OBJECT(builder));
@@ -115,26 +116,66 @@ gboolean PatchMatchApp::cb_draw(GtkWidget *widget, cairo_t *cr, gpointer app)
         cairo_scale(cr, scale, scale); 
         gdk_cairo_set_source_pixbuf(cr, self->target, 0, 0);
         cairo_paint(cr);
+        for(unsigned int i = 0; i < self->fixed_zones->size(); i++)
+        {
+            cairo_set_source_rgb(cr, 1.0, 0.0, 0.0);
+            cairo_set_line_width(cr, 3.0);
+            cairo_rectangle(cr, 
+                            self->fixed_zones->at(i).dst_x/scale, 
+                            self->fixed_zones->at(i).dst_y/scale,
+                            self->fixed_zones->at(i).src_width/scale, 
+                            self->fixed_zones->at(i).src_height/scale);
+            cairo_stroke(cr);
+        }
     }
     return FALSE;
 }
 
 void PatchMatchApp::cb_button_pressed(GtkWidget *widget, GdkEvent *event, gpointer app)
 {
+    PatchMatchApp *self = (PatchMatchApp*) app;
     GdkEventButton *e = (GdkEventButton*) event;
-    printf("Button pressed at (%lf,%lf)\n", e->x, e->y);
+    if(e->button == 1)
+    {
+        self->button_pressed = true;
+        FixedZone z;
+        z.src_x = e->x;
+        z.dst_x = z.src_x;
+        z.src_y = e->y;
+        z.dst_y = z.src_y;
+        z.src_width = 0;
+        z.src_height = 0;
+        self->fixed_zones->push_back(z);
+        gtk_widget_queue_draw(self->drawing_area);
+    }
 }
 
 void PatchMatchApp::cb_button_released(GtkWidget *widget, GdkEvent *event, gpointer app)
 {
+    PatchMatchApp *self = (PatchMatchApp*) app;
     GdkEventButton *e = (GdkEventButton*) event;
-    printf("Button released at (%lf,%lf)\n", e->x, e->y);
+    if(e->button == 1)
+    {
+        self->button_pressed = false;
+    }
 }
 
 void PatchMatchApp::cb_motion_notify(GtkWidget *widget, GdkEvent *event, gpointer app)
 {
+    PatchMatchApp *self = (PatchMatchApp*) app;
     GdkEventMotion *e = (GdkEventMotion*) event;
-    printf("Mouse moved at (%lf,%lf)\n", e->x, e->y);
+    if(self->button_pressed)
+    {
+        if(self->fixed_zones->size() >= 0)
+        {
+            FixedZone &z = self->fixed_zones->back();
+            z.src_width = e->x - z.src_x; 
+            z.src_height = e->y - z.src_y; 
+            z.dst_x = z.src_x;
+            z.dst_y = z.src_y;
+            gtk_widget_queue_draw(self->drawing_area);
+        }
+    }
 }
 
 void PatchMatchApp::openFile(const char *filename)
@@ -151,6 +192,11 @@ void PatchMatchApp::openFile(const char *filename)
         g_object_unref(source);
         source = NULL;
     }
+    if(target != NULL)
+    {
+        g_object_unref(target);
+        target = NULL;
+    }
     source = gdk_pixbuf_new_from_file(filename, &error);
     if(error != NULL)
     {
@@ -164,6 +210,7 @@ void PatchMatchApp::openFile(const char *filename)
         g_error_free(error);
         return;
     }
+    target = gdk_pixbuf_copy(source);
     int length = strlen(filename) + 1;
     this->filename = new char[length];
     strncpy(this->filename, filename, length);
@@ -177,4 +224,13 @@ void PatchMatchApp::saveFile()
 
 void PatchMatchApp::saveFileAs(const char *filename)
 {
+}
+
+void PatchMatchApp::updateTarget()
+{
+/*    cairo_surface_t* 
+    cairo_image_surface_create
+    gdk_cairo_set_source_pixbuf(cr, self->target, 0, 0);
+    cairo_paint(cr);*/
+    
 }

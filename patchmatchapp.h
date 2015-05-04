@@ -5,16 +5,22 @@
 #include <gtk/gtk.h>
 #include <gdk-pixbuf/gdk-pixbuf.h>
 
+#define min(a,b) a < b ? a : b
+#define max(a,b) a > b ? a : b
+
 enum TOOL
 {
     NONE,
+    MOVE,
+    DELETE,
     RESHUFFLE_RECTANGLE,
     RESHUFFLE_FREE_HAND,
 };
 
 struct FixedZone
 {
-    int src_x, src_y, src_heig;
+    int src_x, src_y, src_height, src_width;
+    int dst_x, dst_y;
 };
 
 class PatchMatchApp
@@ -30,6 +36,7 @@ public:
     GdkPixbuf *target;
     char *filename;
     std::vector<FixedZone> *fixed_zones;
+    bool button_pressed;
 
     static void cb_menu_file_open(GtkWidget* widget, gpointer app);
     static void cb_menu_file_save(GtkWidget* widget, gpointer app);
@@ -45,4 +52,5 @@ public:
     void openFile(const char *filename);
     void saveFile();
     void saveFileAs(const char *filename);
+    void updateTarget();
 };
