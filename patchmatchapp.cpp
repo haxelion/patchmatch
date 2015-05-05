@@ -13,6 +13,10 @@ PatchMatchApp::PatchMatchApp()
     menu_file_save = GTK_WIDGET(gtk_builder_get_object(builder, "menu_file_save"));
     menu_file_save_as = GTK_WIDGET(gtk_builder_get_object(builder, "menu_file_save_as"));
     menu_file_quit = GTK_WIDGET(gtk_builder_get_object(builder, "menu_file_quit"));
+    tool_move = GTK_WIDGET(gtk_builder_get_object(builder, "tool_move"));
+    tool_delete = GTK_WIDGET(gtk_builder_get_object(builder, "tool_delete"));
+    tool_reshuffle_rectangle = GTK_WIDGET(gtk_builder_get_object(builder, "tool_reshuffle_rectangle"));
+    tool_reshuffle_free = GTK_WIDGET(gtk_builder_get_object(builder, "tool_reshuffle_free"));
     gtk_widget_add_events(drawing_area, GDK_POINTER_MOTION_MASK | 
                           GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
     // Connect signals
@@ -25,12 +29,17 @@ PatchMatchApp::PatchMatchApp()
     g_signal_connect(G_OBJECT(drawing_area), "button-press-event", G_CALLBACK(PatchMatchApp::cb_button_pressed), this);
     g_signal_connect(G_OBJECT(drawing_area), "button-release-event", G_CALLBACK(PatchMatchApp::cb_button_released), this);
     g_signal_connect(G_OBJECT(drawing_area), "motion-notify-event", G_CALLBACK(PatchMatchApp::cb_motion_notify), this);
+    g_signal_connect(G_OBJECT(tool_move), "clicked", G_CALLBACK(PatchMatchApp::cb_toolbar_clicked), this);
+    g_signal_connect(G_OBJECT(tool_delete), "clicked", G_CALLBACK(PatchMatchApp::cb_toolbar_clicked), this);
+    g_signal_connect(G_OBJECT(tool_reshuffle_rectangle), "clicked", G_CALLBACK(PatchMatchApp::cb_toolbar_clicked), this);
+    g_signal_connect(G_OBJECT(tool_reshuffle_free), "clicked", G_CALLBACK(PatchMatchApp::cb_toolbar_clicked), this);
     // Other initializations
     filename = NULL;
     source = NULL;
     target = NULL;
     fixed_zones = new std::vector<FixedZone>();
     button_pressed = false;
+    active_tool = TOOL_NONE;
     // Lock & Load
     gtk_widget_show_all(main_window);
     g_object_unref(G_OBJECT(builder));
@@ -111,9 +120,9 @@ gboolean PatchMatchApp::cb_draw(GtkWidget *widget, cairo_t *cr, gpointer app)
     {
         width = gtk_widget_get_allocated_width(widget);
         height = gtk_widget_get_allocated_height(widget);
-        double scale = fmin(width/(double) gdk_pixbuf_get_width(self->target), 
+        self->scale = fmin(width/(double) gdk_pixbuf_get_width(self->target), 
                            height/(double) gdk_pixbuf_get_height(self->target));
-        cairo_scale(cr, scale, scale); 
+        cairo_scale(cr, self->scale, self->scale); 
         gdk_cairo_set_source_pixbuf(cr, self->target, 0, 0);
         cairo_paint(cr);
         for(unsigned int i = 0; i < self->fixed_zones->size(); i++)
@@ -121,10 +130,10 @@ gboolean PatchMatchApp::cb_draw(GtkWidget *widget, cairo_t *cr, gpointer app)
             cairo_set_source_rgb(cr, 1.0, 0.0, 0.0);
             cairo_set_line_width(cr, 3.0);
             cairo_rectangle(cr, 
-                            self->fixed_zones->at(i).dst_x/scale, 
-                            self->fixed_zones->at(i).dst_y/scale,
-                            self->fixed_zones->at(i).src_width/scale, 
-                            self->fixed_zones->at(i).src_height/scale);
+                            self->fixed_zones->at(i).dst_x, 
+                            self->fixed_zones->at(i).dst_y,
+                            self->fixed_zones->at(i).src_width, 
+                            self->fixed_zones->at(i).src_height);
             cairo_stroke(cr);
         }
     }
@@ -137,16 +146,34 @@ void PatchMatchApp::cb_button_pressed(GtkWidget *widget, GdkEvent *event, gpoint
     GdkEventButton *e = (GdkEventButton*) event;
     if(e->button == 1)
     {
-        self->button_pressed = true;
-        FixedZone z;
-        z.src_x = e->x;
-        z.dst_x = z.src_x;
-        z.src_y = e->y;
-        z.dst_y = z.src_y;
-        z.src_width = 0;
-        z.src_height = 0;
-        self->fixed_zones->push_back(z);
-        gtk_widget_queue_draw(self->drawing_area);
+        if(self->active_tool == TOOL_DELETE)
+        {
+            for(unsigned int i = 0; i < self->fixed_zones->size(); i++)
+            {
+                FixedZone z = self->fixed_zones->at(i);
+                if(e->x/self->scale >= z.dst_x &&
+                   e->x/self->scale <= z.dst_x + z.src_width &&
+                   e->y/self->scale >= z.dst_y &&
+                   e->y/self->scale <= z.dst_y + z.src_height)
+                {
+                    self->fixed_zones->erase(self->fixed_zones->begin() + i);
+                    gtk_widget_queue_draw(self->drawing_area);
+                }
+            }
+        }
+        else if(self->active_tool == TOOL_RESHUFFLE_RECTANGLE)
+        {
+            self->button_pressed = true;
+            FixedZone z;
+            z.src_x = e->x;
+            z.dst_x = z.src_x;
+            z.src_y = e->y;
+            z.dst_y = z.src_y;
+            z.src_width = 0;
+            z.src_height = 0;
+            self->fixed_zones->push_back(z);
+            gtk_widget_queue_draw(self->drawing_area);
+        }
     }
 }
 
@@ -175,6 +202,27 @@ void PatchMatchApp::cb_motion_notify(GtkWidget *widget, GdkEvent *event, gpointe
             z.dst_y = z.src_y;
             gtk_widget_queue_draw(self->drawing_area);
         }
+    }
+}
+
+void PatchMatchApp::cb_toolbar_clicked(GtkWidget* widget, gpointer app)
+{
+    PatchMatchApp *self = (PatchMatchApp*) app;
+    if(widget == self->tool_move)
+    {
+        self->active_tool = TOOL_MOVE;
+    }
+    else if(widget == self->tool_delete)
+    {
+        self->active_tool = TOOL_DELETE;
+    }
+    else if(widget == self->tool_reshuffle_rectangle)
+    {
+        self->active_tool = TOOL_RESHUFFLE_RECTANGLE;
+    }
+    else if(widget == self->tool_reshuffle_free)
+    {
+        self->active_tool = TOOL_RESHUFFLE_FREE_HAND;
     }
 }
 
@@ -226,11 +274,4 @@ void PatchMatchApp::saveFileAs(const char *filename)
 {
 }
 
-void PatchMatchApp::updateTarget()
-{
-/*    cairo_surface_t* 
-    cairo_image_surface_create
-    gdk_cairo_set_source_pixbuf(cr, self->target, 0, 0);
-    cairo_paint(cr);*/
-    
-}
+

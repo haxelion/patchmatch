@@ -10,11 +10,11 @@
 
 enum TOOL
 {
-    NONE,
-    MOVE,
-    DELETE,
-    RESHUFFLE_RECTANGLE,
-    RESHUFFLE_FREE_HAND,
+    TOOL_NONE,
+    TOOL_MOVE,
+    TOOL_DELETE,
+    TOOL_RESHUFFLE_RECTANGLE,
+    TOOL_RESHUFFLE_FREE_HAND,
 };
 
 struct FixedZone
@@ -30,6 +30,10 @@ public:
     GtkWidget *menu_file_save;
     GtkWidget *menu_file_save_as;
     GtkWidget *menu_file_quit;
+    GtkWidget *tool_move;
+    GtkWidget *tool_delete;
+    GtkWidget *tool_reshuffle_rectangle;
+    GtkWidget *tool_reshuffle_free;
     GtkWidget *drawing_area;
     GtkWidget *main_window;
     GdkPixbuf *source;
@@ -37,11 +41,14 @@ public:
     char *filename;
     std::vector<FixedZone> *fixed_zones;
     bool button_pressed;
+    TOOL active_tool;
+    double scale;
 
     static void cb_menu_file_open(GtkWidget* widget, gpointer app);
     static void cb_menu_file_save(GtkWidget* widget, gpointer app);
     static void cb_menu_file_save_as(GtkWidget* widget, gpointer app);
     static void cb_menu_file_quit(GtkWidget* widget, gpointer app);
+    static void cb_toolbar_clicked(GtkWidget* widget, gpointer app);
     static void cb_button_pressed(GtkWidget *widget, GdkEvent *event, gpointer app);
     static void cb_button_released(GtkWidget *widget, GdkEvent *event, gpointer app);
     static void cb_motion_notify(GtkWidget *widget, GdkEvent *event, gpointer app);
