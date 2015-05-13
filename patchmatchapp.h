@@ -4,6 +4,7 @@
 #include <vector>
 #include <gtk/gtk.h>
 #include <gdk-pixbuf/gdk-pixbuf.h>
+#include "zone.h"
 
 #define min(a,b) a < b ? a : b
 #define max(a,b) a > b ? a : b
@@ -17,10 +18,10 @@ enum TOOL
     TOOL_RESHUFFLE_FREE_HAND,
 };
 
-struct FixedZone
+struct Move
 {
-    int src_x, src_y, src_height, src_width;
-    int dst_x, dst_y;
+    int zone;
+    int dx, dy;
 };
 
 class PatchMatchApp
@@ -38,11 +39,12 @@ public:
     GtkWidget *main_window;
     GdkPixbuf *source;
     GdkPixbuf *target;
+    double scale;
     char *filename;
-    std::vector<FixedZone> *fixed_zones;
+    std::vector<Zone> *zones;
     bool button_pressed;
     TOOL active_tool;
-    double scale;
+    Move move;
 
     static void cb_menu_file_open(GtkWidget* widget, gpointer app);
     static void cb_menu_file_save(GtkWidget* widget, gpointer app);
