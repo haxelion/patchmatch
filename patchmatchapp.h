@@ -1,3 +1,6 @@
+#ifndef PATCHMATCHAPP_H 
+#define PATCHMATCHAPP_H
+
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
@@ -5,6 +8,7 @@
 #include <gtk/gtk.h>
 #include <gdk-pixbuf/gdk-pixbuf.h>
 #include "zone.h"
+#include "patchmatchalgo.h"
 
 #define min(a,b) a < b ? a : b
 #define max(a,b) a > b ? a : b
@@ -35,8 +39,11 @@ public:
     GtkWidget *tool_delete;
     GtkWidget *tool_reshuffle_rectangle;
     GtkWidget *tool_reshuffle_free;
+    GtkWidget *tool_process;
     GtkWidget *drawing_area;
     GtkWidget *main_window;
+    GtkWidget *progress_window;
+    GtkWidget *progress_bar;
     GdkPixbuf *source;
     GdkPixbuf *target;
     double scale;
@@ -45,6 +52,7 @@ public:
     bool button_pressed;
     TOOL active_tool;
     Move move;
+    PatchMatchAlgo *algo;
 
     static void cb_menu_file_open(GtkWidget* widget, gpointer app);
     static void cb_menu_file_save(GtkWidget* widget, gpointer app);
@@ -55,6 +63,7 @@ public:
     static void cb_button_released(GtkWidget *widget, GdkEvent *event, gpointer app);
     static void cb_motion_notify(GtkWidget *widget, GdkEvent *event, gpointer app);
     static gboolean cb_draw(GtkWidget *widget, cairo_t *cr, gpointer app);
+    static gboolean cb_patchmatch_update(gpointer app);
 
     PatchMatchApp();
     ~PatchMatchApp();
@@ -63,3 +72,5 @@ public:
     void saveFileAs(const char *filename);
     void updateTarget();
 };
+
+#endif

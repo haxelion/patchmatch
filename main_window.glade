@@ -17,6 +17,11 @@
     <property name="can_focus">False</property>
     <property name="pixbuf">tool-move.png</property>
   </object>
+  <object class="GtkImage" id="img-tool-process">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="pixbuf">process.png</property>
+  </object>
   <object class="GtkImage" id="img-tool-rect-select">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
@@ -177,6 +182,27 @@
                 <property name="tooltip_text" translatable="yes">Reshuffle free hand</property>
                 <property name="use_underline">True</property>
                 <property name="icon_widget">img-tool-free-select</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="homogeneous">True</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkSeparatorToolItem" id="toolbutton2">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="homogeneous">True</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkToolButton" id="tool_process">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="icon_widget">img-tool-process</property>
               </object>
               <packing>
                 <property name="expand">False</property>

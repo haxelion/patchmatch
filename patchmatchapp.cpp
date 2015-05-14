@@ -17,6 +17,7 @@ PatchMatchApp::PatchMatchApp()
     tool_delete = GTK_WIDGET(gtk_builder_get_object(builder, "tool_delete"));
     tool_reshuffle_rectangle = GTK_WIDGET(gtk_builder_get_object(builder, "tool_reshuffle_rectangle"));
     tool_reshuffle_free = GTK_WIDGET(gtk_builder_get_object(builder, "tool_reshuffle_free"));
+    tool_process = GTK_WIDGET(gtk_builder_get_object(builder, "tool_process"));
     gtk_widget_add_events(drawing_area, GDK_POINTER_MOTION_MASK | 
                           GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
     // Connect signals
@@ -33,6 +34,7 @@ PatchMatchApp::PatchMatchApp()
     g_signal_connect(G_OBJECT(tool_delete), "clicked", G_CALLBACK(PatchMatchApp::cb_toolbar_clicked), this);
     g_signal_connect(G_OBJECT(tool_reshuffle_rectangle), "clicked", G_CALLBACK(PatchMatchApp::cb_toolbar_clicked), this);
     g_signal_connect(G_OBJECT(tool_reshuffle_free), "clicked", G_CALLBACK(PatchMatchApp::cb_toolbar_clicked), this);
+    g_signal_connect(G_OBJECT(tool_process), "clicked", G_CALLBACK(PatchMatchApp::cb_toolbar_clicked), this);
     // Other initializations
     filename = NULL;
     source = NULL;
@@ -40,6 +42,7 @@ PatchMatchApp::PatchMatchApp()
     zones = new std::vector<Zone>();
     button_pressed = false;
     active_tool = TOOL_NONE;
+    algo = new PatchMatchAlgo(this);
     // Lock & Load
     gtk_widget_show_all(main_window);
     g_object_unref(G_OBJECT(builder));
@@ -134,7 +137,15 @@ gboolean PatchMatchApp::cb_draw(GtkWidget *widget, cairo_t *cr, gpointer app)
                             self->zones->at(i).dst_y,
                             self->zones->at(i).src_width, 
                             self->zones->at(i).src_height);
-            cairo_stroke(cr);
+            cairo_set_source_rgb(cr, 1.0, 0.0, 0.0);
+            cairo_set_line_width(cr, 3.0);
+            cairo_stroke_preserve(cr);
+            cairo_clip(cr);
+            gdk_cairo_set_source_pixbuf(cr, self->target,
+                self->zones->at(i).dst_x - self->zones->at(i).src_x, 
+                self->zones->at(i).dst_y - self->zones->at(i).src_y);
+            cairo_paint(cr);
+            cairo_reset_clip(cr);
         }
     }
     return FALSE;
@@ -233,6 +244,33 @@ void PatchMatchApp::cb_toolbar_clicked(GtkWidget* widget, gpointer app)
     {
         self->active_tool = TOOL_RESHUFFLE_FREE_HAND;
     }
+    else if(widget == self->tool_process)
+    {
+        self->algo->run(self->source, self->target, self->zones);
+        self->progress_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+        gtk_window_set_title(GTK_WINDOW(self->progress_window), "Working");
+        gtk_window_set_default_size(GTK_WINDOW(self->progress_window), 200, 50);
+        gtk_window_set_resizable(GTK_WINDOW(self->progress_window), FALSE);
+        gtk_window_set_modal(GTK_WINDOW(self->progress_window), TRUE);
+        gtk_window_set_transient_for(GTK_WINDOW(self->progress_window), GTK_WINDOW(self->main_window));
+        self->progress_bar = gtk_progress_bar_new();
+        gtk_container_add(GTK_CONTAINER(self->progress_window), self->progress_bar);
+        gtk_widget_show_all(self->progress_window);
+    }
+ }
+
+gboolean PatchMatchApp::cb_patchmatch_update(gpointer app)
+{
+    PatchMatchApp *self = (PatchMatchApp*) app;
+    gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(self->progress_bar), self->algo->getProgress());
+    if(self->algo->isDone())
+        gtk_widget_destroy(self->progress_window);
+    if(self->target != NULL)
+        g_object_unref(self->target);
+    self->target = self->algo->reconstructed;
+    g_object_ref(self->target);
+    gtk_widget_queue_draw(self->drawing_area);
+    return FALSE;
 }
 
 void PatchMatchApp::openFile(const char *filename)

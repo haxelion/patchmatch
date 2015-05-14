@@ -1,3 +1,6 @@
+#ifndef ZONE_H
+#define ZONE_H
+
 #include <stdlib.h>
 #include <math.h>
 
@@ -25,3 +28,5 @@ public:
     bool contains(int x, int y);
 
 };
+
+#endif
