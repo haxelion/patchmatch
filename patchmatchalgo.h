@@ -9,8 +9,6 @@
 #include <gdk-pixbuf/gdk-pixbuf.h>
 #include "zone.h"
 
-class PatchMatchApp;
-
 class PatchMatchAlgo
 {
 public:
@@ -25,9 +23,8 @@ public:
     GdkPixbuf *target;
     GdkPixbuf *reconstructed;
     std::vector<Zone> *zones;
-    PatchMatchApp *parent;
 
-    PatchMatchAlgo(PatchMatchApp *parent);
+    PatchMatchAlgo();
     void run(GdkPixbuf *source, GdkPixbuf *target, std::vector<Zone> *zones);
     float getProgress()
     {

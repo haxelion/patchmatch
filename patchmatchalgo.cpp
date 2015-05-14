@@ -1,7 +1,7 @@
 #include "patchmatchapp.h"
 #include "patchmatchalgo.h"
 
-PatchMatchAlgo::PatchMatchAlgo(PatchMatchApp *parent)
+PatchMatchAlgo::PatchMatchAlgo()
 {
     em_iteration = 8;
     patchmatch_iteration = 5;
@@ -10,7 +10,6 @@ PatchMatchAlgo::PatchMatchAlgo(PatchMatchApp *parent)
     target = NULL;
     reconstructed = NULL;
     zones = NULL;
-    this->parent = parent;
 }
 
 void PatchMatchAlgo::run(GdkPixbuf *source, GdkPixbuf *target, std::vector<Zone> *zones)
@@ -67,17 +66,14 @@ gpointer PatchMatchAlgo::threadFunction(gpointer data)
         }
         for(int i = 0; i < self->em_iteration; i++)
         {
-            // Updating work done and signaling to main thread
+            sleep(1);
             self->work_done += gdk_pixbuf_get_width(self->target)/scale * gdk_pixbuf_get_height(self->target)/scale;
-            g_idle_add(PatchMatchApp::cb_patchmatch_update, self->parent);
         }
         // Atomic replacement of reconstructed pixbuf
         GdkPixbuf *new_pixbuf = gdk_pixbuf_copy(target_scaled);
         GdkPixbuf *old_pixbuf = self->reconstructed;
         self->reconstructed = new_pixbuf;
         g_object_unref(old_pixbuf);
-        // Signaling update to main thread
-        g_idle_add(PatchMatchApp::cb_patchmatch_update, self->parent);
         scale = scale >> 1;
     }
     self->done = true;

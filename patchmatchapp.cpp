@@ -42,7 +42,7 @@ PatchMatchApp::PatchMatchApp()
     zones = new std::vector<Zone>();
     button_pressed = false;
     active_tool = TOOL_NONE;
-    algo = new PatchMatchAlgo(this);
+    algo = new PatchMatchAlgo();
     // Lock & Load
     gtk_widget_show_all(main_window);
     g_object_unref(G_OBJECT(builder));
@@ -253,9 +253,13 @@ void PatchMatchApp::cb_toolbar_clicked(GtkWidget* widget, gpointer app)
         gtk_window_set_resizable(GTK_WINDOW(self->progress_window), FALSE);
         gtk_window_set_modal(GTK_WINDOW(self->progress_window), TRUE);
         gtk_window_set_transient_for(GTK_WINDOW(self->progress_window), GTK_WINDOW(self->main_window));
+        gtk_window_set_position(GTK_WINDOW(self->progress_window), GTK_WIN_POS_CENTER_ON_PARENT);
         self->progress_bar = gtk_progress_bar_new();
+        gtk_widget_set_hexpand(self->progress_bar, TRUE);
+        gtk_widget_set_vexpand(self->progress_bar, TRUE);
         gtk_container_add(GTK_CONTAINER(self->progress_window), self->progress_bar);
         gtk_widget_show_all(self->progress_window);
+        g_idle_add(PatchMatchApp::cb_patchmatch_update, self);
     }
  }
 
@@ -263,14 +267,20 @@ gboolean PatchMatchApp::cb_patchmatch_update(gpointer app)
 {
     PatchMatchApp *self = (PatchMatchApp*) app;
     gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(self->progress_bar), self->algo->getProgress());
+    if(self->algo->reconstructed != NULL && self->target != self->algo->reconstructed)
+    {
+        if(self->target != NULL)
+            g_object_unref(self->target);
+        self->target = self->algo->reconstructed;
+        g_object_ref(self->target);
+        gtk_widget_queue_draw(self->drawing_area);
+    }
     if(self->algo->isDone())
+    {
         gtk_widget_destroy(self->progress_window);
-    if(self->target != NULL)
-        g_object_unref(self->target);
-    self->target = self->algo->reconstructed;
-    g_object_ref(self->target);
-    gtk_widget_queue_draw(self->drawing_area);
-    return FALSE;
+        return FALSE;
+    }
+    return TRUE;
 }
 
 void PatchMatchApp::openFile(const char *filename)
