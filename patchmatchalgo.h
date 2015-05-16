@@ -2,6 +2,7 @@
 #define PATCHMATCHALGO_H
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
 #include <time.h>
 #include <vector>
@@ -36,8 +37,12 @@ public:
     bool isDone() { return done; }
     GdkPixbuf* getResult() { return reconstructed; }
     static gpointer threadFunction(gpointer data);
-
-    
 };
+
+inline int distance(GdkPixbuf *source, GdkPixbuf *target, int sx, int sy, int tx, int ty, int patch_w);
+inline void randomANN(GdkPixbuf *source, GdkPixbuf *target, int **annx, int **anny, int **annd, int patch_w);
+inline void rescaleANN(GdkPixbuf *source, GdkPixbuf *target, int **annx, int **anny, int **annd, int patch_w);
+inline void patchVoting(GdkPixbuf *source, GdkPixbuf *target, std::vector<Zone> *zones, int **annx, int **anny, int patch_w, int scale);
+inline void patchMatch(GdkPixbuf *source, GdkPixbuf *target, std::vector<Zone> *zones, int **annx, int **anny, int **annd, int patch_w, int scale, int iter);
 
 #endif

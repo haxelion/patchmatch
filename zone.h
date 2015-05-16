@@ -17,7 +17,6 @@ class Zone
 {
 public:
     int src_x, src_y, src_height, src_width;
-    int **mask;
     ZONETYPE type;
     int dst_x, dst_y;
  
@@ -26,7 +25,7 @@ public:
     void extend(int x, int y);
     void finalize();
     bool contains(int x, int y);
-
+    Zone scale(int scale);
 };
 
 #endif

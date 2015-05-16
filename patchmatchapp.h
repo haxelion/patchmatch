@@ -43,7 +43,7 @@ public:
     GtkWidget *drawing_area;
     GtkWidget *main_window;
     GtkWidget *progress_window;
-    GtkWidget *progress_bar;
+    GtkWidget *level_bar;
     GdkPixbuf *source;
     GdkPixbuf *target;
     double scale;

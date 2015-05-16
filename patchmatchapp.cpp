@@ -249,15 +249,13 @@ void PatchMatchApp::cb_toolbar_clicked(GtkWidget* widget, gpointer app)
         self->algo->run(self->source, self->target, self->zones);
         self->progress_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
         gtk_window_set_title(GTK_WINDOW(self->progress_window), "Working");
-        gtk_window_set_default_size(GTK_WINDOW(self->progress_window), 200, 50);
         gtk_window_set_resizable(GTK_WINDOW(self->progress_window), FALSE);
         gtk_window_set_modal(GTK_WINDOW(self->progress_window), TRUE);
         gtk_window_set_transient_for(GTK_WINDOW(self->progress_window), GTK_WINDOW(self->main_window));
         gtk_window_set_position(GTK_WINDOW(self->progress_window), GTK_WIN_POS_CENTER_ON_PARENT);
-        self->progress_bar = gtk_progress_bar_new();
-        gtk_widget_set_hexpand(self->progress_bar, TRUE);
-        gtk_widget_set_vexpand(self->progress_bar, TRUE);
-        gtk_container_add(GTK_CONTAINER(self->progress_window), self->progress_bar);
+        self->level_bar = gtk_level_bar_new();
+        gtk_widget_set_size_request(self->level_bar, 200, 50);
+        gtk_container_add(GTK_CONTAINER(self->progress_window), self->level_bar);
         gtk_widget_show_all(self->progress_window);
         g_idle_add(PatchMatchApp::cb_patchmatch_update, self);
     }
@@ -266,12 +264,12 @@ void PatchMatchApp::cb_toolbar_clicked(GtkWidget* widget, gpointer app)
 gboolean PatchMatchApp::cb_patchmatch_update(gpointer app)
 {
     PatchMatchApp *self = (PatchMatchApp*) app;
-    gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(self->progress_bar), self->algo->getProgress());
-    if(self->algo->reconstructed != NULL && self->target != self->algo->reconstructed)
+    gtk_level_bar_set_value(GTK_LEVEL_BAR(self->level_bar), self->algo->getProgress());
+    if(self->algo->getResult() != NULL && self->target != self->algo->getResult())
     {
         if(self->target != NULL)
             g_object_unref(self->target);
-        self->target = self->algo->reconstructed;
+        self->target = self->algo->getResult();
         g_object_ref(self->target);
         gtk_widget_queue_draw(self->drawing_area);
     }

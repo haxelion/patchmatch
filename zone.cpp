@@ -38,3 +38,13 @@ bool Zone::contains(int x, int y)
         return true;
     return false;
 }
+
+Zone Zone::scale(int scale)
+{
+    Zone zs(src_x/scale, src_y/scale, type);
+    zs.dst_x = dst_x/scale;
+    zs.dst_y = dst_y/scale;
+    zs.src_height = src_height/scale;
+    zs.src_width = src_width/scale;
+    return zs;
+}
