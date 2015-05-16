@@ -68,6 +68,9 @@ void PatchMatchApp::cb_menu_file_open(GtkWidget* widget, gpointer app)
     PatchMatchApp *self = (PatchMatchApp*) app;
     dialog = gtk_file_chooser_dialog_new("Open File", GTK_WINDOW(self->main_window), 
         action, "Cancel", GTK_RESPONSE_CANCEL, "Open", GTK_RESPONSE_ACCEPT, NULL);
+    GtkFileFilter *filter = gtk_file_filter_new();
+    gtk_file_filter_add_pixbuf_formats(filter);
+    gtk_file_chooser_set_filter(GTK_FILE_CHOOSER(dialog), filter);
     res = gtk_dialog_run(GTK_DIALOG(dialog));
     if (res == GTK_RESPONSE_ACCEPT)
     {
@@ -96,6 +99,9 @@ void PatchMatchApp::cb_menu_file_save_as(GtkWidget* widget, gpointer app)
     dialog = gtk_file_chooser_dialog_new("Save File As", GTK_WINDOW(self->main_window), 
         action, "Cancel", GTK_RESPONSE_CANCEL, "Save As", GTK_RESPONSE_ACCEPT, NULL);
     gtk_file_chooser_set_do_overwrite_confirmation (GTK_FILE_CHOOSER(dialog), TRUE);
+    GtkFileFilter *filter = gtk_file_filter_new();
+    gtk_file_filter_add_pixbuf_formats(filter);
+    gtk_file_chooser_set_filter(GTK_FILE_CHOOSER(dialog), filter);
     res = gtk_dialog_run(GTK_DIALOG(dialog));
     if(res == GTK_RESPONSE_ACCEPT)
     {
@@ -330,6 +336,33 @@ void PatchMatchApp::saveFile()
 
 void PatchMatchApp::saveFileAs(const char *filename)
 {
+    GError *error = NULL;
+    const char *type = strrchr(filename, '.');
+    if(type == NULL)
+    {
+        GtkWidget *dialog;
+        GtkDialogFlags flags = GTK_DIALOG_DESTROY_WITH_PARENT;
+
+        dialog = gtk_message_dialog_new(GTK_WINDOW(this->main_window), flags, GTK_MESSAGE_ERROR, 
+            GTK_BUTTONS_CLOSE, "Missing file extension.");
+        gtk_dialog_run(GTK_DIALOG (dialog));
+        gtk_widget_destroy(dialog);
+        return;
+    }
+    type += 1;
+    gdk_pixbuf_save(target, filename, type, &error, NULL);
+    if(error != NULL)
+    {
+        GtkWidget *dialog;
+        GtkDialogFlags flags = GTK_DIALOG_DESTROY_WITH_PARENT;
+
+        dialog = gtk_message_dialog_new(GTK_WINDOW(this->main_window), flags, GTK_MESSAGE_ERROR, 
+            GTK_BUTTONS_CLOSE, "%s", error->message);
+        gtk_dialog_run(GTK_DIALOG (dialog));
+        gtk_widget_destroy(dialog);
+        g_error_free(error);
+        return;
+    }
 }
 
 
