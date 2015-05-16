@@ -10,9 +10,6 @@
 #include "zone.h"
 #include "patchmatchalgo.h"
 
-#define min(a,b) a < b ? a : b
-#define max(a,b) a > b ? a : b
-
 enum TOOL
 {
     TOOL_NONE,

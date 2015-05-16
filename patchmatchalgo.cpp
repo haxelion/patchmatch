@@ -24,7 +24,30 @@ void PatchMatchAlgo::run(GdkPixbuf *source, GdkPixbuf *target, std::vector<Zone>
     if(this->zones != NULL)
         delete this->zones;
     this->source = gdk_pixbuf_copy(source);
-    this->target = gdk_pixbuf_copy(target);
+    cairo_surface_t *surface = cairo_image_surface_create(
+        CAIRO_FORMAT_RGB24, 
+        gdk_pixbuf_get_width(target), 
+        gdk_pixbuf_get_height(target));
+    cairo_t *cr = cairo_create(surface);
+    gdk_cairo_set_source_pixbuf(cr, target, 0, 0);
+    cairo_paint(cr);
+    for(unsigned int i = 0; i < zones->size(); i++)
+    {
+        cairo_rectangle(cr, zones->at(i).dst_x, zones->at(i).dst_y,
+            zones->at(i).src_width, zones->at(i).src_height);
+        cairo_clip(cr);
+        gdk_cairo_set_source_pixbuf(cr, target,
+            zones->at(i).dst_x - zones->at(i).src_x, 
+            zones->at(i).dst_y - zones->at(i).src_y);
+        cairo_paint(cr);
+        cairo_reset_clip(cr);
+    }
+    cairo_surface_flush(surface);
+    this->target = gdk_pixbuf_get_from_surface(surface, 0, 0, 
+        cairo_image_surface_get_width(surface), 
+        cairo_image_surface_get_height(surface));
+    cairo_destroy(cr);
+    cairo_surface_destroy(surface);
     this->zones = new std::vector<Zone>(*zones);
     thread = g_thread_new("patchmatch", PatchMatchAlgo::threadFunction, this);
 }
@@ -49,7 +72,8 @@ gpointer PatchMatchAlgo::threadFunction(gpointer data)
         annd[i] = new int[target_height];
     }
     // Compute starting scale
-    int scale = 1 << (int)(log2(min(target_width, target_height)/self->patch_w)-3);
+    printf("target_width = %d, target_height = %d, patch_w = %d\n", target_width, target_height, self->patch_w);
+    int scale = 1 << (int)(log2(min(target_width, target_height)/self->patch_w)-1);
     // Compute total work to be done (pixel count)
     self->total_work = 0;
     self->work_done = 0;
@@ -187,6 +211,9 @@ inline void patchVoting(GdkPixbuf *source, GdkPixbuf *target, std::vector<Zone> 
     int t_rowstride = gdk_pixbuf_get_rowstride(target);
     int target_height = gdk_pixbuf_get_height(target);
     int target_width = gdk_pixbuf_get_width(target);
+    int source_height = gdk_pixbuf_get_height(source);
+    int source_width = gdk_pixbuf_get_width(source);
+
     guchar *s_pixels = gdk_pixbuf_get_pixels(source);
     guchar *t_pixels = gdk_pixbuf_get_pixels(target);
     int *votes = new int[target_width * target_height * 3];
@@ -233,15 +260,20 @@ inline void patchVoting(GdkPixbuf *source, GdkPixbuf *target, std::vector<Zone> 
         if(zones->at(i).type == FIXEDZONE)
         {
             Zone z = zones->at(i).scale(scale);
-            for(int j = 0; j < z.src_width; j++)
-                for(int k = 0; k < z.src_height; k++)
+            int xs = max(max(-z.src_x, -z.dst_x), 0);
+            int xe = min(min(target_width - z.dst_x, source_width - z.src_x), z.src_width);
+            int ys = max(max(-z.src_y, -z.dst_y), 0);
+            int ye = min(min(target_height - z.dst_y, source_height - z.src_y), z.src_height);
+            for(int x = xs; x < xe; x++)
+                for(int y = ys; y < ye; y++)
                 {
-                    guchar *s_p = s_pixels + (z.src_y + k)*t_rowstride + (z.src_x + j)*3;
-                    guchar *t_p = t_pixels + (z.dst_y + k)*t_rowstride + (z.dst_x + j)*3;
+                    guchar *s_p = s_pixels + (z.src_y + y)*s_rowstride + (z.src_x + x)*3;
+                    guchar *t_p = t_pixels + (z.dst_y + y)*t_rowstride + (z.dst_x + x)*3;
                     t_p[0] = s_p[0];
                     t_p[1] = s_p[1];
                     t_p[2] = s_p[2];
                 }
+
         }
     }
 }

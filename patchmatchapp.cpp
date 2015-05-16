@@ -128,24 +128,25 @@ gboolean PatchMatchApp::cb_draw(GtkWidget *widget, cairo_t *cr, gpointer app)
         cairo_scale(cr, self->scale, self->scale); 
         gdk_cairo_set_source_pixbuf(cr, self->target, 0, 0);
         cairo_paint(cr);
-        for(unsigned int i = 0; i < self->zones->size(); i++)
+        if(self->algo->isDone())
         {
-            cairo_set_source_rgb(cr, 1.0, 0.0, 0.0);
-            cairo_set_line_width(cr, 3.0);
-            cairo_rectangle(cr, 
-                            self->zones->at(i).dst_x, 
-                            self->zones->at(i).dst_y,
-                            self->zones->at(i).src_width, 
-                            self->zones->at(i).src_height);
-            cairo_set_source_rgb(cr, 1.0, 0.0, 0.0);
-            cairo_set_line_width(cr, 3.0);
-            cairo_stroke_preserve(cr);
-            cairo_clip(cr);
-            gdk_cairo_set_source_pixbuf(cr, self->target,
-                self->zones->at(i).dst_x - self->zones->at(i).src_x, 
-                self->zones->at(i).dst_y - self->zones->at(i).src_y);
-            cairo_paint(cr);
-            cairo_reset_clip(cr);
+            for(unsigned int i = 0; i < self->zones->size(); i++)
+            {
+                cairo_set_source_rgb(cr, 1.0, 0.0, 0.0);
+                cairo_set_line_width(cr, 3.0/self->scale);
+                cairo_rectangle(cr, 
+                    self->zones->at(i).dst_x, self->zones->at(i).dst_y,
+                    self->zones->at(i).src_width, self->zones->at(i).src_height);
+                cairo_set_source_rgb(cr, 1.0, 0.0, 0.0);
+                cairo_set_line_width(cr, 3.0);
+                cairo_stroke_preserve(cr);
+                cairo_clip(cr);
+                gdk_cairo_set_source_pixbuf(cr, self->target,
+                    self->zones->at(i).dst_x - self->zones->at(i).src_x, 
+                    self->zones->at(i).dst_y - self->zones->at(i).src_y);
+                cairo_paint(cr);
+                cairo_reset_clip(cr);
+            }
         }
     }
     return FALSE;
@@ -275,6 +276,8 @@ gboolean PatchMatchApp::cb_patchmatch_update(gpointer app)
     }
     if(self->algo->isDone())
     {
+        g_object_unref(self->source);
+        self->source = gdk_pixbuf_copy(self->target);
         gtk_widget_destroy(self->progress_window);
         return FALSE;
     }
