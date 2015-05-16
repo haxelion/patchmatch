@@ -59,6 +59,7 @@ public:
     static void cb_button_pressed(GtkWidget *widget, GdkEvent *event, gpointer app);
     static void cb_button_released(GtkWidget *widget, GdkEvent *event, gpointer app);
     static void cb_motion_notify(GtkWidget *widget, GdkEvent *event, gpointer app);
+    static void cb_patchmatch_canceled(GtkWidget *widget, GdkEvent *event, gpointer app);
     static gboolean cb_draw(GtkWidget *widget, cairo_t *cr, gpointer app);
     static gboolean cb_patchmatch_update(gpointer app);
 

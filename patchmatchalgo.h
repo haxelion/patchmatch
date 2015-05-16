@@ -14,6 +14,7 @@ class PatchMatchAlgo
 {
 public:
     bool done;
+    bool terminate;
     float total_work;
     float work_done;
     int em_iteration;
@@ -37,6 +38,7 @@ public:
     bool isDone() { return done; }
     GdkPixbuf* getResult() { return reconstructed; }
     static gpointer threadFunction(gpointer data);
+    void stop();
 };
 
 inline int distance(GdkPixbuf *source, GdkPixbuf *target, int sx, int sy, int tx, int ty, int patch_w);

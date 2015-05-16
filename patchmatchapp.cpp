@@ -263,10 +263,18 @@ void PatchMatchApp::cb_toolbar_clicked(GtkWidget* widget, gpointer app)
         self->level_bar = gtk_level_bar_new();
         gtk_widget_set_size_request(self->level_bar, 200, 50);
         gtk_container_add(GTK_CONTAINER(self->progress_window), self->level_bar);
+        g_signal_connect(G_OBJECT(self->progress_window), "delete-event", G_CALLBACK(PatchMatchApp::cb_patchmatch_canceled), self);
         gtk_widget_show_all(self->progress_window);
+
         g_idle_add(PatchMatchApp::cb_patchmatch_update, self);
     }
  }
+
+void PatchMatchApp::cb_patchmatch_canceled(GtkWidget *widget, GdkEvent *event, gpointer app)
+{
+    PatchMatchApp *self = (PatchMatchApp*) app;
+    self->algo->stop();
+}
 
 gboolean PatchMatchApp::cb_patchmatch_update(gpointer app)
 {
@@ -282,8 +290,16 @@ gboolean PatchMatchApp::cb_patchmatch_update(gpointer app)
     }
     if(self->algo->isDone())
     {
-        g_object_unref(self->source);
-        self->source = gdk_pixbuf_copy(self->target);
+        if(self->algo->terminate)
+        {
+            g_object_unref(self->target);
+            self->target = gdk_pixbuf_copy(self->source);
+        }
+        else
+        {
+            g_object_unref(self->source);
+            self->source = gdk_pixbuf_copy(self->target);
+        }
         gtk_widget_destroy(self->progress_window);
         return FALSE;
     }

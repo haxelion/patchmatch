@@ -49,7 +49,13 @@ void PatchMatchAlgo::run(GdkPixbuf *source, GdkPixbuf *target, std::vector<Zone>
     cairo_destroy(cr);
     cairo_surface_destroy(surface);
     this->zones = new std::vector<Zone>(*zones);
+    this->terminate = false;
     thread = g_thread_new("patchmatch", PatchMatchAlgo::threadFunction, this);
+}
+
+void PatchMatchAlgo::stop()
+{
+    this->terminate = true;
 }
 
 gpointer PatchMatchAlgo::threadFunction(gpointer data)
@@ -82,7 +88,7 @@ gpointer PatchMatchAlgo::threadFunction(gpointer data)
         self->total_work += self->em_iteration * target_width/i * target_height/i;
     }
     bool first_loop = true;
-    while(scale >= 1)
+    while(scale >= 1 && !self->terminate)
     {
         if(source_scaled != NULL)
             g_object_unref(source_scaled);
@@ -102,7 +108,7 @@ gpointer PatchMatchAlgo::threadFunction(gpointer data)
             rescaleANN(source_scaled, target_scaled, annx, anny, annd, self->patch_w);
             patchVoting(source_scaled, target_scaled, self->zones, annx, anny, self->patch_w, scale);
         }
-        for(int i = 0; i < self->em_iteration; i++)
+        for(int i = 0; i < self->em_iteration && !self->terminate; i++)
         {
             patchMatch(source_scaled, target_scaled, self->zones, annx, anny, annd, self->patch_w, scale, self->patchmatch_iteration);
             patchVoting(source_scaled, target_scaled, self->zones, annx, anny, self->patch_w, scale);
