@@ -44,7 +44,7 @@ Zone Zone::scale(int scale)
     Zone zs(src_x/scale, src_y/scale, type);
     zs.dst_x = dst_x/scale;
     zs.dst_y = dst_y/scale;
-    zs.src_height = src_height/scale;
-    zs.src_width = src_width/scale;
+    zs.src_width = (src_x + src_width + scale - 1)/scale - zs.src_x;
+    zs.src_height = (src_y + src_height + scale - 1)/scale - zs.src_y;
     return zs;
 }

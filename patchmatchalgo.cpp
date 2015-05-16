@@ -72,7 +72,6 @@ gpointer PatchMatchAlgo::threadFunction(gpointer data)
         annd[i] = new int[target_height];
     }
     // Compute starting scale
-    printf("target_width = %d, target_height = %d, patch_w = %d\n", target_width, target_height, self->patch_w);
     int scale = 1 << (int)(log2(min(target_width, target_height)/self->patch_w)-1);
     // Compute total work to be done (pixel count)
     self->total_work = 0;
