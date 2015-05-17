@@ -48,3 +48,50 @@ Zone Zone::scale(int scale)
     zs.src_height = (src_y + src_height + scale - 1)/scale - zs.src_y;
     return zs;
 }
+
+MaskedZone::MaskedZone(int src_x, int src_y, ZONETYPE type)
+ : Zone(src_x, src_y, type)
+{
+    edges.push_back(std::make_pair(src_x, src_y));
+}
+
+void MaskedZone::extend(int x, int y)
+{
+    if(edges.back().first != x && edges.back().second != y)
+        edges.push_back(std::make_pair(x, y));
+}
+
+void MaskedZone::finalize()
+{
+    src_x = edges[0].first;
+    src_y = edges[0].second;
+    src_width = edges[0].first;
+    src_height = edges[0].second;
+    for(unsigned int i = 0; i < edges.size(); i++)
+    {
+        if(edges[i].first < src_x)
+            src_x = edges[i].first;
+        if(edges[i].first > src_width)
+            src_width = edges[i].first;
+        if(edges[i].second < src_y)
+            src_y = edges[i].second;
+        if(edges[i].second > src_height)
+            src_height = edges[i].second;
+    }
+    src_width -= src_x;
+    src_height -= src_y;
+    dst_x = src_x;
+    dst_y = src_y;
+
+}
+
+bool MaskedZone::contains(int x, int y)
+{
+    return true;
+}
+
+Zone MaskedZone::scale(int scale)
+{
+    return Zone(src_x, dst_x, type);
+}
+
