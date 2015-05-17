@@ -129,29 +129,16 @@ gboolean PatchMatchApp::cb_draw(GtkWidget *widget, cairo_t *cr, gpointer app)
     {
         width = gtk_widget_get_allocated_width(widget);
         height = gtk_widget_get_allocated_height(widget);
-        self->scale = fmin(width/(double) gdk_pixbuf_get_width(self->target), 
-                           height/(double) gdk_pixbuf_get_height(self->target));
+        self->scale = fmin(width/(double) cairo_image_surface_get_width(self->target), 
+                           height/(double) cairo_image_surface_get_height(self->target));
         cairo_scale(cr, self->scale, self->scale); 
-        gdk_cairo_set_source_pixbuf(cr, self->target, 0, 0);
+        cairo_set_source_surface(cr, self->target, 0, 0);
         cairo_paint(cr);
         if(self->algo->isDone())
         {
             for(unsigned int i = 0; i < self->zones->size(); i++)
             {
-                cairo_set_source_rgb(cr, 1.0, 0.0, 0.0);
-                cairo_set_line_width(cr, 3.0/self->scale);
-                cairo_rectangle(cr, 
-                    self->zones->at(i).dst_x, self->zones->at(i).dst_y,
-                    self->zones->at(i).src_width, self->zones->at(i).src_height);
-                cairo_set_source_rgb(cr, 1.0, 0.0, 0.0);
-                cairo_set_line_width(cr, 3.0);
-                cairo_stroke_preserve(cr);
-                cairo_clip(cr);
-                gdk_cairo_set_source_pixbuf(cr, self->target,
-                    self->zones->at(i).dst_x - self->zones->at(i).src_x, 
-                    self->zones->at(i).dst_y - self->zones->at(i).src_y);
-                cairo_paint(cr);
-                cairo_reset_clip(cr);
+                self->zones->at(i).draw(cr, self->source, 1, true);
             }
         }
     }
@@ -283,22 +270,38 @@ gboolean PatchMatchApp::cb_patchmatch_update(gpointer app)
     if(self->algo->getResult() != NULL && self->target != self->algo->getResult())
     {
         if(self->target != NULL)
-            g_object_unref(self->target);
+            cairo_surface_destroy(self->target);
         self->target = self->algo->getResult();
-        g_object_ref(self->target);
+        cairo_surface_reference(self->target);
         gtk_widget_queue_draw(self->drawing_area);
     }
     if(self->algo->isDone())
     {
         if(self->algo->terminate)
         {
-            g_object_unref(self->target);
-            self->target = gdk_pixbuf_copy(self->source);
+            cairo_surface_destroy(self->target);
+            self->target = cairo_image_surface_create(
+                CAIRO_FORMAT_RGB24, 
+                cairo_image_surface_get_width(self->source), 
+                cairo_image_surface_get_height(self->source));
+            cairo_t *cr = cairo_create(self->target);
+            cairo_set_source_surface(cr, self->source, 0, 0);
+            cairo_paint(cr);
+            cairo_surface_flush(self->target);
+            cairo_destroy(cr);
         }
         else
         {
-            g_object_unref(self->source);
-            self->source = gdk_pixbuf_copy(self->target);
+            cairo_surface_destroy(self->source);
+            self->source = cairo_image_surface_create(
+                CAIRO_FORMAT_RGB24, 
+                cairo_image_surface_get_width(self->target), 
+                cairo_image_surface_get_height(self->target));
+            cairo_t *cr = cairo_create(self->source);
+            cairo_set_source_surface(cr, self->target, 0, 0);
+            cairo_paint(cr);
+            cairo_surface_flush(self->source);
+            cairo_destroy(cr);
         }
         gtk_widget_destroy(self->progress_window);
         return FALSE;
@@ -309,6 +312,8 @@ gboolean PatchMatchApp::cb_patchmatch_update(gpointer app)
 void PatchMatchApp::openFile(const char *filename)
 {
     GError *error = NULL;
+    GdkPixbuf *pixbuf;
+    cairo_t *cr;
 
     if(this->filename != NULL)
     {
@@ -317,15 +322,15 @@ void PatchMatchApp::openFile(const char *filename)
     }
     if(source != NULL)
     {
-        g_object_unref(source);
+        cairo_surface_destroy(source);
         source = NULL;
     }
     if(target != NULL)
     {
-        g_object_unref(target);
+        cairo_surface_destroy(target);
         target = NULL;
     }
-    source = gdk_pixbuf_new_from_file(filename, &error);
+    pixbuf = gdk_pixbuf_new_from_file(filename, &error);
     if(error != NULL)
     {
         GtkWidget *dialog;
@@ -338,7 +343,28 @@ void PatchMatchApp::openFile(const char *filename)
         g_error_free(error);
         return;
     }
-    target = gdk_pixbuf_copy(source);
+    source = cairo_image_surface_create(
+        CAIRO_FORMAT_RGB24, 
+        gdk_pixbuf_get_width(pixbuf), 
+        gdk_pixbuf_get_height(pixbuf));
+    cr = cairo_create(source);
+    gdk_cairo_set_source_pixbuf(cr, pixbuf, 0, 0);
+    cairo_paint(cr);
+    cairo_surface_flush(source);
+    cairo_destroy(cr);
+
+    target = cairo_image_surface_create(
+        CAIRO_FORMAT_RGB24, 
+        gdk_pixbuf_get_width(pixbuf), 
+        gdk_pixbuf_get_height(pixbuf));
+    cr = cairo_create(target);
+    gdk_cairo_set_source_pixbuf(cr, pixbuf, 0, 0);
+    cairo_paint(cr);
+    cairo_surface_flush(target);
+    cairo_destroy(cr);
+
+    g_object_unref(pixbuf);
+     
     int length = strlen(filename) + 1;
     this->filename = new char[length];
     strncpy(this->filename, filename, length);
@@ -353,6 +379,7 @@ void PatchMatchApp::saveFile()
 void PatchMatchApp::saveFileAs(const char *filename)
 {
     GError *error = NULL;
+    GdkPixbuf *pixbuf;
     const char *type = strrchr(filename, '.');
     if(type == NULL)
     {
@@ -366,7 +393,11 @@ void PatchMatchApp::saveFileAs(const char *filename)
         return;
     }
     type += 1;
-    gdk_pixbuf_save(target, filename, type, &error, NULL);
+    pixbuf = gdk_pixbuf_get_from_surface(target, 0, 0,
+        cairo_image_surface_get_width(target),
+        cairo_image_surface_get_height(target));
+    gdk_pixbuf_save(pixbuf, filename, type, &error, NULL);
+    g_object_unref(pixbuf);
     if(error != NULL)
     {
         GtkWidget *dialog;

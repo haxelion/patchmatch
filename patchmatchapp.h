@@ -41,8 +41,8 @@ public:
     GtkWidget *main_window;
     GtkWidget *progress_window;
     GtkWidget *level_bar;
-    GdkPixbuf *source;
-    GdkPixbuf *target;
+    cairo_surface_t *source;
+    cairo_surface_t *target;
     double scale;
     char *filename;
     std::vector<Zone> *zones;

@@ -5,6 +5,7 @@
 #include <math.h>
 #include <vector>
 #include <utility>
+#include <gtk/gtk.h>
 
 #define min(a,b) (a < b ? a : b)
 #define max(a,b) (a > b ? a : b)
@@ -28,6 +29,7 @@ public:
     virtual void finalize();
     virtual bool contains(int x, int y);
     virtual Zone scale(int scale);
+    virtual void draw(cairo_t *cr, cairo_surface_t *source, int scale, bool draw_outline);
 };
 
 class MaskedZone : public Zone
@@ -40,6 +42,7 @@ public:
     void finalize();
     bool contains(int x, int y);
     Zone scale(int scale);
+    void draw(cairo_t *cr, cairo_surface_t *source, int scale, bool draw_outline);
 };
 
 #endif

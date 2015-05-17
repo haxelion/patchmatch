@@ -39,6 +39,23 @@ bool Zone::contains(int x, int y)
     return false;
 }
 
+void Zone::draw(cairo_t *cr, cairo_surface_t *source, int scale, bool draw_outline)
+{
+    cairo_save(cr);
+    cairo_scale(cr, 1.0/scale, 1.0/scale);
+    cairo_rectangle(cr, dst_x, dst_y, src_width, src_height);
+    if(draw_outline)
+    {
+        cairo_set_source_rgb(cr, 1.0, 0.0, 0.0);
+        cairo_set_line_width(cr, scale*3.0);
+        cairo_stroke_preserve(cr);
+    }
+    cairo_set_source_surface(cr, source, dst_x - src_x, dst_y - src_y);
+    cairo_clip(cr);
+    cairo_paint(cr);
+    cairo_restore(cr);
+}
+
 Zone Zone::scale(int scale)
 {
     Zone zs(src_x/scale, src_y/scale, type);
@@ -95,3 +112,6 @@ Zone MaskedZone::scale(int scale)
     return Zone(src_x, dst_x, type);
 }
 
+void MaskedZone::draw(cairo_t *cr, cairo_surface_t *source, int scale, bool draw_outline)
+{
+}
