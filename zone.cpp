@@ -56,16 +56,6 @@ void Zone::draw(cairo_t *cr, cairo_surface_t *source, int scale, bool draw_outli
     cairo_restore(cr);
 }
 
-Zone Zone::scale(int scale)
-{
-    Zone zs(src_x/scale, src_y/scale, type);
-    zs.dst_x = dst_x/scale;
-    zs.dst_y = dst_y/scale;
-    zs.src_width = (src_x + src_width + scale - 1)/scale - zs.src_x;
-    zs.src_height = (src_y + src_height + scale - 1)/scale - zs.src_y;
-    return zs;
-}
-
 MaskedZone::MaskedZone(int src_x, int src_y, ZONETYPE type)
  : Zone(src_x, src_y, type)
 {
@@ -134,11 +124,6 @@ bool MaskedZone::contains(int x, int y, int scale)
         }
     }
     return false;
-}
-
-Zone MaskedZone::scale(int scale)
-{
-    return Zone(src_x, dst_x, type);
 }
 
 void MaskedZone::draw(cairo_t *cr, cairo_surface_t *source, int scale, bool draw_outline)

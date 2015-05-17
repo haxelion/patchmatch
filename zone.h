@@ -28,7 +28,6 @@ public:
     virtual void extend(int x, int y);
     virtual void finalize();
     virtual bool contains(int x, int y, int scale);
-    virtual Zone scale(int scale);
     virtual void draw(cairo_t *cr, cairo_surface_t *source, int scale, bool draw_outline);
 };
 
@@ -42,7 +41,6 @@ public:
     void extend(int x, int y);
     void finalize();
     bool contains(int x, int y, int scale);
-    Zone scale(int scale);
     void draw(cairo_t *cr, cairo_surface_t *source, int scale, bool draw_outline);
 };
 
