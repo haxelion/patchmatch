@@ -39,7 +39,7 @@ PatchMatchApp::PatchMatchApp()
     filename = NULL;
     source = NULL;
     target = NULL;
-    zones = new std::vector<Zone>();
+    zones = new std::vector<Zone*>();
     button_pressed = false;
     active_tool = TOOL_NONE;
     algo = new PatchMatchAlgo();
@@ -56,6 +56,8 @@ PatchMatchApp::~PatchMatchApp()
         g_object_unref(target);
     if(source != NULL)
         g_object_unref(source);
+    for(unsigned int i = 0; i < zones->size(); i++)
+        delete zones->at(i);
     delete zones;
 }
 
@@ -138,7 +140,7 @@ gboolean PatchMatchApp::cb_draw(GtkWidget *widget, cairo_t *cr, gpointer app)
         {
             for(unsigned int i = 0; i < self->zones->size(); i++)
             {
-                self->zones->at(i).draw(cr, self->source, 1, true);
+                self->zones->at(i)->draw(cr, self->source, 1, true);
             }
         }
     }
@@ -155,7 +157,7 @@ void PatchMatchApp::cb_button_pressed(GtkWidget *widget, GdkEvent *event, gpoint
         {
             for(unsigned int i = 0; i < self->zones->size(); i++)
             {
-                if(self->zones->at(i).contains(e->x/self->scale, e->y/self->scale))
+                if(self->zones->at(i)->contains(e->x/self->scale, e->y/self->scale, 1))
                 {
                     self->zones->erase(self->zones->begin() + i);
                     gtk_widget_queue_draw(self->drawing_area);
@@ -166,12 +168,12 @@ void PatchMatchApp::cb_button_pressed(GtkWidget *widget, GdkEvent *event, gpoint
         {
             for(int i = self->zones->size() - 1; i >= 0; i--)
             {
-                if(self->zones->at(i).contains(e->x/self->scale, e->y/self->scale))
+                if(self->zones->at(i)->contains(e->x/self->scale, e->y/self->scale, 1))
                 {
                     self->button_pressed = true;
                     self->move.zone = i;
-                    self->move.dx = self->zones->at(i).dst_x - e->x/self->scale;
-                    self->move.dy = self->zones->at(i).dst_y - e->y/self->scale;
+                    self->move.dx = self->zones->at(i)->dst_x - e->x/self->scale;
+                    self->move.dy = self->zones->at(i)->dst_y - e->y/self->scale;
                     break;
                 }
             }
@@ -179,7 +181,13 @@ void PatchMatchApp::cb_button_pressed(GtkWidget *widget, GdkEvent *event, gpoint
         else if(self->active_tool == TOOL_RESHUFFLE_RECTANGLE)
         {
             self->button_pressed = true;
-            self->zones->push_back(Zone(e->x/self->scale, e->y/self->scale, FIXEDZONE));
+            self->zones->push_back(new Zone(e->x/self->scale, e->y/self->scale, FIXEDZONE));
+            gtk_widget_queue_draw(self->drawing_area);
+        }
+        else if(self->active_tool == TOOL_RESHUFFLE_FREE_HAND)
+        {
+            self->button_pressed = true;
+            self->zones->push_back(new MaskedZone(e->x/self->scale, e->y/self->scale, FIXEDZONE));
             gtk_widget_queue_draw(self->drawing_area);
         }
     }
@@ -192,9 +200,10 @@ void PatchMatchApp::cb_button_released(GtkWidget *widget, GdkEvent *event, gpoin
     if(e->button == 1 && self->button_pressed == true)
     {
         self->button_pressed = false;
-        if(self->active_tool == TOOL_RESHUFFLE_RECTANGLE && 
+        if((self->active_tool == TOOL_RESHUFFLE_RECTANGLE ||
+           self->active_tool == TOOL_RESHUFFLE_FREE_HAND) && 
            self->zones->size() >= 0)
-            self->zones->back().finalize();
+            self->zones->back()->finalize();
     }
 }
 
@@ -206,14 +215,15 @@ void PatchMatchApp::cb_motion_notify(GtkWidget *widget, GdkEvent *event, gpointe
     {
         if(self->active_tool == TOOL_MOVE)
         {
-            self->zones->at(self->move.zone).dst_x = e->x/self->scale + self->move.dx;
-            self->zones->at(self->move.zone).dst_y = e->y/self->scale + self->move.dy;
+            self->zones->at(self->move.zone)->dst_x = e->x/self->scale + self->move.dx;
+            self->zones->at(self->move.zone)->dst_y = e->y/self->scale + self->move.dy;
             gtk_widget_queue_draw(self->drawing_area);
         }
-        else if(self->active_tool == TOOL_RESHUFFLE_RECTANGLE && 
+        else if((self->active_tool == TOOL_RESHUFFLE_RECTANGLE ||
+            self->active_tool == TOOL_RESHUFFLE_FREE_HAND) && 
            self->zones->size() >= 0)
         {
-            self->zones->back().extend(e->x/self->scale, e->y/self->scale);
+            self->zones->back()->extend(e->x/self->scale, e->y/self->scale);
             gtk_widget_queue_draw(self->drawing_area);
         }
     }

@@ -31,10 +31,10 @@ void Zone::finalize()
     src_height = abs(src_height);
 }
 
-bool Zone::contains(int x, int y)
+bool Zone::contains(int x, int y, int scale)
 {
-    if(x >= dst_x && x <= dst_x + src_width &&
-       y >= dst_y && y <= dst_y + src_height)
+    if(scale*x + scale - 1 >= dst_x && scale*x <= dst_x + src_width &&
+       scale*y + scale - 1 >= dst_y && scale*y <= dst_y + src_height)
         return true;
     return false;
 }
@@ -74,7 +74,7 @@ MaskedZone::MaskedZone(int src_x, int src_y, ZONETYPE type)
 
 void MaskedZone::extend(int x, int y)
 {
-    if(edges.back().first != x && edges.back().second != y)
+    if(edges.back().first != x || edges.back().second != y)
         edges.push_back(std::make_pair(x, y));
 }
 
@@ -99,12 +99,41 @@ void MaskedZone::finalize()
     src_height -= src_y;
     dst_x = src_x;
     dst_y = src_y;
-
+    mask = cairo_image_surface_create(CAIRO_FORMAT_A8, src_width, src_height);
+    cairo_t *cr = cairo_create(mask);
+    cairo_translate(cr, -src_x, -src_y);
+    cairo_move_to(cr, edges[0].first, edges[0].second);
+    for(unsigned int i = 1; i < edges.size(); i++)
+        cairo_line_to(cr, edges[i].first, edges[i].second);
+    cairo_close_path(cr);
+    cairo_set_source_rgba(cr, 1.0, 1.0, 1.0, 1.0);
+    cairo_fill(cr);
+    cairo_surface_flush(mask);
+    cairo_destroy(cr);
 }
 
-bool MaskedZone::contains(int x, int y)
+bool MaskedZone::contains(int x, int y, int scale)
 {
-    return true;
+    if(scale*x + scale - 1 >= dst_x && scale*x <= dst_x + src_width &&
+       scale*y + scale - 1 >= dst_y && scale*y <= dst_y + src_height)
+    {
+        unsigned char *p = cairo_image_surface_get_data(mask);
+        int stride = cairo_image_surface_get_stride(mask);
+        int width = cairo_image_surface_get_width(mask);
+        int height = cairo_image_surface_get_height(mask);
+        p += scale*(y - dst_y)*stride + x - dst_x;
+        for(int i = 0; i < scale; i++)
+        {
+            for(int j = 0; j < scale; j++)
+            {
+                if(*p > 0)
+                    return true;
+                p++;
+            }
+            p += stride - scale;
+        }
+    }
+    return false;
 }
 
 Zone MaskedZone::scale(int scale)
@@ -114,4 +143,21 @@ Zone MaskedZone::scale(int scale)
 
 void MaskedZone::draw(cairo_t *cr, cairo_surface_t *source, int scale, bool draw_outline)
 {
+    cairo_save(cr);
+    cairo_scale(cr, 1.0/scale, 1.0/scale);
+    cairo_translate(cr, dst_x - src_x, dst_y - src_y);
+    cairo_move_to(cr, edges[0].first, edges[0].second);
+    for(unsigned int i = 1; i < edges.size(); i++)
+        cairo_line_to(cr, edges[i].first, edges[i].second);
+    cairo_close_path(cr);
+    if(draw_outline)
+    {
+        cairo_set_source_rgb(cr, 1.0, 0.0, 0.0);
+        cairo_set_line_width(cr, scale*3.0);
+        cairo_stroke_preserve(cr);
+    }
+    cairo_set_source_surface(cr, source, 0, 0);
+    cairo_clip(cr);
+    cairo_paint(cr);
+    cairo_restore(cr);
 }

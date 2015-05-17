@@ -27,7 +27,7 @@ public:
     void move(int dx, int dy);
     virtual void extend(int x, int y);
     virtual void finalize();
-    virtual bool contains(int x, int y);
+    virtual bool contains(int x, int y, int scale);
     virtual Zone scale(int scale);
     virtual void draw(cairo_t *cr, cairo_surface_t *source, int scale, bool draw_outline);
 };
@@ -36,11 +36,12 @@ class MaskedZone : public Zone
 {
 public:
     std::vector<std::pair<int, int> > edges;
+    cairo_surface_t *mask;
 
     MaskedZone(int src_x, int src_y, ZONETYPE type);
     void extend(int x, int y);
     void finalize();
-    bool contains(int x, int y);
+    bool contains(int x, int y, int scale);
     Zone scale(int scale);
     void draw(cairo_t *cr, cairo_surface_t *source, int scale, bool draw_outline);
 };

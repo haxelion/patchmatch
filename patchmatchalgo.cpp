@@ -13,7 +13,7 @@ PatchMatchAlgo::PatchMatchAlgo()
     zones = NULL;
 }
 
-void PatchMatchAlgo::run(cairo_surface_t *source, cairo_surface_t *target, std::vector<Zone> *zones)
+void PatchMatchAlgo::run(cairo_surface_t *source, cairo_surface_t *target, std::vector<Zone*> *zones)
 {
     if(thread != NULL)
         return;
@@ -43,12 +43,12 @@ void PatchMatchAlgo::run(cairo_surface_t *source, cairo_surface_t *target, std::
     cairo_paint(cr);
     for(unsigned int i = 0; i < zones->size(); i++)
     {
-        zones->at(i).draw(cr, source, 1, false);
+        zones->at(i)->draw(cr, source, 1, false);
     }
     cairo_surface_flush(this->target);
     cairo_destroy(cr);
 
-    this->zones = new std::vector<Zone>(*zones);
+    this->zones = new std::vector<Zone*>(*zones);
     this->terminate = false;
     thread = g_thread_new("patchmatch", PatchMatchAlgo::threadFunction, this);
 }
@@ -102,12 +102,15 @@ gpointer PatchMatchAlgo::threadFunction(gpointer data)
         else
         {
             rescaleANN(source_scaled, target_scaled, annx, anny, annd, self->patch_w);
-            patchVoting(source_scaled, self->source, target_scaled, self->zones, annx, anny, self->patch_w, scale);
+            patchVoting(source_scaled, target_scaled, self->zones, annx, anny, self->patch_w);
+            enforceFixedZone(self->source, target_scaled, self->zones, scale);
         }
         for(int i = 0; i < self->em_iteration && !self->terminate; i++)
         {
-            patchMatch(source_scaled, target_scaled, self->zones, annx, anny, annd, self->patch_w, scale, self->patchmatch_iteration);
-            patchVoting(source_scaled, self->source, target_scaled, self->zones, annx, anny, self->patch_w, scale);
+            patchMatch(source_scaled, target_scaled, self->zones, annx, anny, annd, self->patch_w, self->patchmatch_iteration);
+            patchVoting(source_scaled, target_scaled, self->zones, annx, anny, self->patch_w);
+            if(scale != 1)
+                enforceFixedZone(self->source, target_scaled, self->zones, scale);
             self->work_done += target_width/scale * target_height/scale;
             // Atomic replacement of reconstructed pixbuf
             cairo_surface_t *new_surface = scaleSurface(target_scaled, 1);
@@ -221,16 +224,16 @@ inline void rescaleANN(cairo_surface_t *source, cairo_surface_t *target, int **a
         }
 }
 
-inline void patchVoting(cairo_surface_t *source_scaled, cairo_surface_t *source, cairo_surface_t *target, std::vector<Zone> *zones, int **annx, int **anny, int patch_w, int scale)
+inline void patchVoting(cairo_surface_t *source, cairo_surface_t *target, std::vector<Zone*> *zones, int **annx, int **anny, int patch_w)
 {
-    int s_rowstride = cairo_image_surface_get_stride(source_scaled);
+    int s_rowstride = cairo_image_surface_get_stride(source);
     int t_rowstride = cairo_image_surface_get_stride(target);
     int target_height = cairo_image_surface_get_height(target);
     int target_width = cairo_image_surface_get_width(target);
-    int source_height = cairo_image_surface_get_height(source_scaled);
-    int source_width = cairo_image_surface_get_width(source_scaled);
+    int source_height = cairo_image_surface_get_height(source);
+    int source_width = cairo_image_surface_get_width(source);
 
-    unsigned char *s_pixels = cairo_image_surface_get_data(source_scaled);
+    unsigned char *s_pixels = cairo_image_surface_get_data(source);
     unsigned char *t_pixels = cairo_image_surface_get_data(target);
     int *votes = new int[target_width * target_height * 3];
     int *nvotes = new int[target_width * target_height];
@@ -269,21 +272,24 @@ inline void patchVoting(cairo_surface_t *source_scaled, cairo_surface_t *source,
                 t_p[2] = v[2]/nv;
             }
         }
+}
 
+inline void enforceFixedZone(cairo_surface_t *source, cairo_surface_t *target, std::vector<Zone*> *zones, int scale)
+{
     // Enforce fixed zone constraints
     cairo_t *cr = cairo_create(target);
     for(unsigned int i = 0; i < zones->size(); i++)
     {
-        if(zones->at(i).type == FIXEDZONE)
+        if(zones->at(i)->type == FIXEDZONE)
         {
-            zones->at(i).draw(cr, source, scale, false);
+            zones->at(i)->draw(cr, source, scale, false);
         }
     }
     cairo_surface_flush(target);
     cairo_destroy(cr);
 }
 
-inline void patchMatch(cairo_surface_t *source, cairo_surface_t *target, std::vector<Zone> *zones, int **annx, int **anny, int **annd, int patch_w, int scale, int iter)
+inline void patchMatch(cairo_surface_t *source, cairo_surface_t *target, std::vector<Zone*> *zones, int **annx, int **anny, int **annd, int patch_w, int iter)
 {
     int target_height = cairo_image_surface_get_height(target);
     int target_width = cairo_image_surface_get_width(target);

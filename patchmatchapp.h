@@ -45,7 +45,7 @@ public:
     cairo_surface_t *target;
     double scale;
     char *filename;
-    std::vector<Zone> *zones;
+    std::vector<Zone*> *zones;
     bool button_pressed;
     TOOL active_tool;
     Move move;
