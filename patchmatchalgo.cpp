@@ -18,17 +18,27 @@ void PatchMatchAlgo::run(GdkPixbuf *source, GdkPixbuf *target, std::vector<Zone>
     if(thread != NULL)
         return;
     if(this->source != NULL)
-        g_object_unref(this->source);
+        cairo_surface_destroy(this->source);
     if(this->target != NULL)
-        g_object_unref(this->target);
+        cairo_surface_destroy(this->target);
     if(this->zones != NULL)
         delete this->zones;
-    this->source = gdk_pixbuf_copy(source);
-    cairo_surface_t *surface = cairo_image_surface_create(
+
+    this->source = cairo_image_surface_create(
+        CAIRO_FORMAT_RGB24, 
+        gdk_pixbuf_get_width(source), 
+        gdk_pixbuf_get_height(source));
+    cairo_t *cr = cairo_create(this->source);
+    gdk_cairo_set_source_pixbuf(cr, source, 0, 0);
+    cairo_paint(cr);
+    cairo_surface_flush(this->source);
+    cairo_destroy(cr);
+
+    this->target = cairo_image_surface_create(
         CAIRO_FORMAT_RGB24, 
         gdk_pixbuf_get_width(target), 
         gdk_pixbuf_get_height(target));
-    cairo_t *cr = cairo_create(surface);
+    cr = cairo_create(this->target);
     gdk_cairo_set_source_pixbuf(cr, target, 0, 0);
     cairo_paint(cr);
     for(unsigned int i = 0; i < zones->size(); i++)
@@ -42,12 +52,9 @@ void PatchMatchAlgo::run(GdkPixbuf *source, GdkPixbuf *target, std::vector<Zone>
         cairo_paint(cr);
         cairo_reset_clip(cr);
     }
-    cairo_surface_flush(surface);
-    this->target = gdk_pixbuf_get_from_surface(surface, 0, 0, 
-        cairo_image_surface_get_width(surface), 
-        cairo_image_surface_get_height(surface));
+    cairo_surface_flush(this->target);
     cairo_destroy(cr);
-    cairo_surface_destroy(surface);
+
     this->zones = new std::vector<Zone>(*zones);
     this->terminate = false;
     thread = g_thread_new("patchmatch", PatchMatchAlgo::threadFunction, this);
@@ -61,12 +68,10 @@ void PatchMatchAlgo::stop()
 gpointer PatchMatchAlgo::threadFunction(gpointer data)
 {
     PatchMatchAlgo *self = (PatchMatchAlgo*) data;
-    GdkPixbuf *source_scaled = NULL;
-    GdkPixbuf *target_scaled = NULL;
-    int target_height = gdk_pixbuf_get_height(self->target);
-    int target_width = gdk_pixbuf_get_width(self->target);
-    int source_height = gdk_pixbuf_get_height(self->source);
-    int source_width = gdk_pixbuf_get_width(self->source);
+    cairo_surface_t *source_scaled = NULL;
+    cairo_surface_t *target_scaled = NULL;
+    int target_height = cairo_image_surface_get_height(self->target);
+    int target_width = cairo_image_surface_get_width(self->target);
     int **annx, **anny, **annd;
     annx = new int*[target_width];
     anny = new int*[target_width];
@@ -91,13 +96,11 @@ gpointer PatchMatchAlgo::threadFunction(gpointer data)
     while(scale >= 1 && !self->terminate)
     {
         if(source_scaled != NULL)
-            g_object_unref(source_scaled);
+            cairo_surface_destroy(source_scaled);
         if(target_scaled != NULL)
-            g_object_unref(target_scaled);
-        target_scaled = gdk_pixbuf_scale_simple(self->target, target_width/scale, 
-            target_height/scale, GDK_INTERP_BILINEAR);
-        source_scaled = gdk_pixbuf_scale_simple(self->source, source_width/scale, 
-            source_height/scale, GDK_INTERP_BILINEAR);
+            cairo_surface_destroy(target_scaled);
+        target_scaled = scaleSurface(self->target, scale); 
+        source_scaled = scaleSurface(self->source, scale); 
         if(first_loop)
         {
             first_loop = false;
@@ -114,7 +117,9 @@ gpointer PatchMatchAlgo::threadFunction(gpointer data)
             patchVoting(source_scaled, target_scaled, self->zones, annx, anny, self->patch_w, scale);
             self->work_done += target_width/scale * target_height/scale;
             // Atomic replacement of reconstructed pixbuf
-            GdkPixbuf *new_pixbuf = gdk_pixbuf_copy(target_scaled);
+            GdkPixbuf *new_pixbuf = gdk_pixbuf_get_from_surface(target_scaled, 0, 0, 
+                cairo_image_surface_get_width(target_scaled), 
+                cairo_image_surface_get_height(target_scaled));
             GdkPixbuf *old_pixbuf = self->reconstructed;
             self->reconstructed = new_pixbuf;
             g_object_unref(old_pixbuf);
@@ -122,22 +127,37 @@ gpointer PatchMatchAlgo::threadFunction(gpointer data)
         scale = scale >> 1;
     }
     self->done = true;
-    g_object_unref(source_scaled);
-    g_object_unref(target_scaled);
+    cairo_surface_destroy(source_scaled);
+    cairo_surface_destroy(target_scaled);
     g_thread_unref(self->thread);
     self->thread = NULL;
     return NULL;
 }
 
-inline int distance(GdkPixbuf *source, GdkPixbuf *target, int sx, int sy, int tx, int ty, int patch_w)
+inline cairo_surface_t * scaleSurface(cairo_surface_t *surface, int scale)
+{
+    cairo_surface_t *scaled = cairo_image_surface_create(
+        CAIRO_FORMAT_RGB24, 
+        (cairo_image_surface_get_width(surface) + scale - 1)/scale, 
+        (cairo_image_surface_get_height(surface) + scale -1)/scale);
+    cairo_t *cr = cairo_create(scaled);
+    cairo_scale(cr, 1.0/scale, 1.0/scale);
+    cairo_set_source_surface(cr, surface, 0, 0);
+    cairo_paint(cr);
+    cairo_surface_flush(scaled);
+    cairo_destroy(cr);
+    return scaled;
+}
+
+inline int distance(cairo_surface_t *source, cairo_surface_t *target, int sx, int sy, int tx, int ty, int patch_w)
 {
     int d = 0;
-    int s_rowstride = gdk_pixbuf_get_rowstride(source);
-    int t_rowstride = gdk_pixbuf_get_rowstride(target);
-    guchar *s_p = gdk_pixbuf_get_pixels(source);
-    guchar *t_p = gdk_pixbuf_get_pixels(target);
-    s_p += sy*s_rowstride + sx*3;
-    t_p += ty*t_rowstride + tx*3;
+    int s_rowstride = cairo_image_surface_get_stride(source);
+    int t_rowstride = cairo_image_surface_get_stride(target);
+    unsigned char *s_p = cairo_image_surface_get_data(source);
+    unsigned char *t_p = cairo_image_surface_get_data(target);
+    s_p += sy*s_rowstride + sx*4;
+    t_p += ty*t_rowstride + tx*4;
     for(int i = 0; i < patch_w; i++)
     {
         for(int j = 0; j < patch_w; j++)
@@ -145,21 +165,21 @@ inline int distance(GdkPixbuf *source, GdkPixbuf *target, int sx, int sy, int tx
             d += (s_p[0]-t_p[0])*(s_p[0]-t_p[0]) +
                  (s_p[1]-t_p[1])*(s_p[1]-t_p[1]) +
                  (s_p[2]-t_p[2])*(s_p[2]-t_p[2]);
-            s_p += 3;
-            t_p += 3;
+            s_p += 4;
+            t_p += 4;
         }
-        s_p += s_rowstride - patch_w*3;
-        t_p += t_rowstride - patch_w*3;
+        s_p += s_rowstride - patch_w*4;
+        t_p += t_rowstride - patch_w*4;
     }
     return d;
 }
 
-inline void randomANN(GdkPixbuf *source, GdkPixbuf *target, int **annx, int **anny, int **annd, int patch_w)
+inline void randomANN(cairo_surface_t *source, cairo_surface_t *target, int **annx, int **anny, int **annd, int patch_w)
 {
-    int target_height = gdk_pixbuf_get_height(target) - patch_w;
-    int target_width = gdk_pixbuf_get_width(target) - patch_w;
-    int source_height = gdk_pixbuf_get_height(source) - patch_w;
-    int source_width = gdk_pixbuf_get_width(source) - patch_w;
+    int target_height = cairo_image_surface_get_height(target) - patch_w;
+    int target_width = cairo_image_surface_get_width(target) - patch_w;
+    int source_height = cairo_image_surface_get_height(source) - patch_w;
+    int source_width = cairo_image_surface_get_width(source) - patch_w;
 
     srand(time(NULL));
 
@@ -172,12 +192,12 @@ inline void randomANN(GdkPixbuf *source, GdkPixbuf *target, int **annx, int **an
         }
 }
 
-inline void rescaleANN(GdkPixbuf *source, GdkPixbuf *target, int **annx, int **anny, int **annd, int patch_w)
+inline void rescaleANN(cairo_surface_t *source, cairo_surface_t *target, int **annx, int **anny, int **annd, int patch_w)
 {
-    int target_height = gdk_pixbuf_get_height(target) - patch_w;
-    int target_width = gdk_pixbuf_get_width(target) - patch_w;
-    int source_height = gdk_pixbuf_get_height(source) - patch_w;
-    int source_width = gdk_pixbuf_get_width(source) - patch_w;
+    int target_height = cairo_image_surface_get_height(target) - patch_w;
+    int target_width = cairo_image_surface_get_width(target) - patch_w;
+    int source_height = cairo_image_surface_get_height(source) - patch_w;
+    int source_width = cairo_image_surface_get_width(source) - patch_w;
 
     for(int i = target_width - patch_w - 1; i >= 0; i--)
         for(int j = target_height - patch_w - 1; j >= 0; j--)
@@ -210,17 +230,17 @@ inline void rescaleANN(GdkPixbuf *source, GdkPixbuf *target, int **annx, int **a
         }
 }
 
-inline void patchVoting(GdkPixbuf *source, GdkPixbuf *target, std::vector<Zone> *zones, int **annx, int **anny, int patch_w, int scale)
+inline void patchVoting(cairo_surface_t *source, cairo_surface_t *target, std::vector<Zone> *zones, int **annx, int **anny, int patch_w, int scale)
 {
-    int s_rowstride = gdk_pixbuf_get_rowstride(source);
-    int t_rowstride = gdk_pixbuf_get_rowstride(target);
-    int target_height = gdk_pixbuf_get_height(target);
-    int target_width = gdk_pixbuf_get_width(target);
-    int source_height = gdk_pixbuf_get_height(source);
-    int source_width = gdk_pixbuf_get_width(source);
+    int s_rowstride = cairo_image_surface_get_stride(source);
+    int t_rowstride = cairo_image_surface_get_stride(target);
+    int target_height = cairo_image_surface_get_height(target);
+    int target_width = cairo_image_surface_get_width(target);
+    int source_height = cairo_image_surface_get_height(source);
+    int source_width = cairo_image_surface_get_width(source);
 
-    guchar *s_pixels = gdk_pixbuf_get_pixels(source);
-    guchar *t_pixels = gdk_pixbuf_get_pixels(target);
+    unsigned char *s_pixels = cairo_image_surface_get_data(source);
+    unsigned char *t_pixels = cairo_image_surface_get_data(target);
     int *votes = new int[target_width * target_height * 3];
     int *nvotes = new int[target_width * target_height];
 
@@ -236,7 +256,7 @@ inline void patchVoting(GdkPixbuf *source, GdkPixbuf *target, std::vector<Zone> 
             for(int k = 0; k < patch_w; k++)
                 for(int l = 0; l < patch_w; l++)
                 {
-                    guchar *s_p = s_pixels + (anny[i][j]+l)*s_rowstride + (annx[i][j]+k)*3;
+                    unsigned char *s_p = s_pixels + (anny[i][j]+l)*s_rowstride + (annx[i][j]+k)*4;
                     int* v = votes + ((j+l)*target_width + i + k)*3;
                     v[0] += s_p[0];
                     v[1] += s_p[1];
@@ -248,7 +268,7 @@ inline void patchVoting(GdkPixbuf *source, GdkPixbuf *target, std::vector<Zone> 
     for(int i = 0; i < target_width; i++)
         for(int j = 0; j < target_height; j++)
         {
-            guchar *t_p = t_pixels + j*t_rowstride + i*3;
+            unsigned char *t_p = t_pixels + j*t_rowstride + i*4;
             int* v = votes + (j*target_width + i)*3;
             int nv = nvotes[j*target_width + i]; 
             if(nv != 0)
@@ -272,8 +292,8 @@ inline void patchVoting(GdkPixbuf *source, GdkPixbuf *target, std::vector<Zone> 
             for(int x = xs; x < xe; x++)
                 for(int y = ys; y < ye; y++)
                 {
-                    guchar *s_p = s_pixels + (z.src_y + y)*s_rowstride + (z.src_x + x)*3;
-                    guchar *t_p = t_pixels + (z.dst_y + y)*t_rowstride + (z.dst_x + x)*3;
+                    unsigned char *s_p = s_pixels + (z.src_y + y)*s_rowstride + (z.src_x + x)*4;
+                    unsigned char *t_p = t_pixels + (z.dst_y + y)*t_rowstride + (z.dst_x + x)*4;
                     t_p[0] = s_p[0];
                     t_p[1] = s_p[1];
                     t_p[2] = s_p[2];
@@ -283,12 +303,12 @@ inline void patchVoting(GdkPixbuf *source, GdkPixbuf *target, std::vector<Zone> 
     }
 }
 
-inline void patchMatch(GdkPixbuf *source, GdkPixbuf *target, std::vector<Zone> *zones, int **annx, int **anny, int **annd, int patch_w, int scale, int iter)
+inline void patchMatch(cairo_surface_t *source, cairo_surface_t *target, std::vector<Zone> *zones, int **annx, int **anny, int **annd, int patch_w, int scale, int iter)
 {
-    int target_height = gdk_pixbuf_get_height(target);
-    int target_width = gdk_pixbuf_get_width(target);
-    int source_height = gdk_pixbuf_get_height(source);
-    int source_width = gdk_pixbuf_get_width(source);
+    int target_height = cairo_image_surface_get_height(target);
+    int target_width = cairo_image_surface_get_width(target);
+    int source_height = cairo_image_surface_get_height(source);
+    int source_width = cairo_image_surface_get_width(source);
 
     for(int i = 0; i < iter; i++)
     {

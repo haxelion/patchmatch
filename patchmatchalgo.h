@@ -21,8 +21,8 @@ public:
     int patchmatch_iteration;
     int patch_w;
     GThread *thread;
-    GdkPixbuf *source;
-    GdkPixbuf *target;
+    cairo_surface_t *source;
+    cairo_surface_t *target;
     GdkPixbuf *reconstructed;
     std::vector<Zone> *zones;
 
@@ -41,10 +41,11 @@ public:
     void stop();
 };
 
-inline int distance(GdkPixbuf *source, GdkPixbuf *target, int sx, int sy, int tx, int ty, int patch_w);
-inline void randomANN(GdkPixbuf *source, GdkPixbuf *target, int **annx, int **anny, int **annd, int patch_w);
-inline void rescaleANN(GdkPixbuf *source, GdkPixbuf *target, int **annx, int **anny, int **annd, int patch_w);
-inline void patchVoting(GdkPixbuf *source, GdkPixbuf *target, std::vector<Zone> *zones, int **annx, int **anny, int patch_w, int scale);
-inline void patchMatch(GdkPixbuf *source, GdkPixbuf *target, std::vector<Zone> *zones, int **annx, int **anny, int **annd, int patch_w, int scale, int iter);
+inline int distance(cairo_surface_t *source, cairo_surface_t *target, int sx, int sy, int tx, int ty, int patch_w);
+inline cairo_surface_t * scaleSurface(cairo_surface_t *surface, int scale);
+inline void randomANN(cairo_surface_t *source, cairo_surface_t *target, int **annx, int **anny, int **annd, int patch_w);
+inline void rescaleANN(cairo_surface_t *source, cairo_surface_t *target, int **annx, int **anny, int **annd, int patch_w);
+inline void patchVoting(cairo_surface_t *source, cairo_surface_t *target, std::vector<Zone> *zones, int **annx, int **anny, int patch_w, int scale);
+inline void patchMatch(cairo_surface_t *source, cairo_surface_t *target, std::vector<Zone> *zones, int **annx, int **anny, int **annd, int patch_w, int scale, int iter);
 
 #endif
