@@ -7,6 +7,11 @@
     <property name="can_focus">False</property>
     <property name="pixbuf">tool-delete.png</property>
   </object>
+  <object class="GtkImage" id="img-tool-free-replace">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="pixbuf">tool-free-select2.png</property>
+  </object>
   <object class="GtkImage" id="img-tool-free-select">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
@@ -22,10 +27,20 @@
     <property name="can_focus">False</property>
     <property name="pixbuf">process.png</property>
   </object>
+  <object class="GtkImage" id="img-tool-rect-replace">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="pixbuf">tool-rect-select2.png</property>
+  </object>
   <object class="GtkImage" id="img-tool-rect-select">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
     <property name="pixbuf">tool-rect-select.png</property>
+  </object>
+  <object class="GtkImage" id="img-tool-retarget">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="pixbuf">tool-retarget.png</property>
   </object>
   <object class="GtkApplicationWindow" id="main_window">
     <property name="can_focus">False</property>
@@ -190,6 +205,62 @@
             </child>
             <child>
               <object class="GtkSeparatorToolItem" id="toolbutton2">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="homogeneous">True</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkToolButton" id="tool_replace_rectangle">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="use_underline">True</property>
+                <property name="icon_widget">img-tool-rect-replace</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="homogeneous">True</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkToolButton" id="tool_replace_free">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="use_underline">True</property>
+                <property name="icon_widget">img-tool-free-replace</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="homogeneous">True</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkSeparatorToolItem" id="toolbutton3">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="homogeneous">True</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkToolButton" id="tool_retarget">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="use_underline">True</property>
+                <property name="icon_widget">img-tool-retarget</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="homogeneous">True</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkSeparatorToolItem" id="toolbutton4">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
               </object>

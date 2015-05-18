@@ -17,6 +17,9 @@ enum TOOL
     TOOL_DELETE,
     TOOL_RESHUFFLE_RECTANGLE,
     TOOL_RESHUFFLE_FREE_HAND,
+    TOOL_REPLACE_RECTANGLE,
+    TOOL_REPLACE_FREE_HAND,
+    TOOL_RETARGET
 };
 
 struct Move
@@ -36,6 +39,9 @@ public:
     GtkWidget *tool_delete;
     GtkWidget *tool_reshuffle_rectangle;
     GtkWidget *tool_reshuffle_free;
+    GtkWidget *tool_replace_rectangle;
+    GtkWidget *tool_replace_free;
+    GtkWidget *tool_retarget;
     GtkWidget *tool_process;
     GtkWidget *drawing_area;
     GtkWidget *main_window;

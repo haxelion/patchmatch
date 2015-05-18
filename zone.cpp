@@ -46,13 +46,22 @@ void Zone::draw(cairo_t *cr, cairo_surface_t *source, int scale, bool draw_outli
     cairo_rectangle(cr, dst_x, dst_y, src_width, src_height);
     if(draw_outline)
     {
-        cairo_set_source_rgb(cr, 1.0, 0.0, 0.0);
+        if(type == REPLACEZONE)
+        {
+            cairo_set_source_rgb(cr, 1.0, 1.0, 0.0);
+            printf("Painting replace zone\n");
+        }
+        else
+            cairo_set_source_rgb(cr, 1.0, 0.0, 0.0);
         cairo_set_line_width(cr, scale*3.0);
         cairo_stroke_preserve(cr);
     }
-    cairo_set_source_surface(cr, source, dst_x - src_x, dst_y - src_y);
-    cairo_clip(cr);
-    cairo_paint(cr);
+    if(type == FIXEDZONE)
+    {
+        cairo_set_source_surface(cr, source, dst_x - src_x, dst_y - src_y);
+        cairo_clip(cr);
+        cairo_paint(cr);
+    }
     cairo_restore(cr);
 }
 
@@ -137,12 +146,18 @@ void MaskedZone::draw(cairo_t *cr, cairo_surface_t *source, int scale, bool draw
     cairo_close_path(cr);
     if(draw_outline)
     {
-        cairo_set_source_rgb(cr, 1.0, 0.0, 0.0);
+        if(type == REPLACEZONE)
+            cairo_set_source_rgb(cr, 1.0, 1.0, 0.0);
+        else
+            cairo_set_source_rgb(cr, 1.0, 0.0, 0.0);
         cairo_set_line_width(cr, scale*3.0);
         cairo_stroke_preserve(cr);
     }
-    cairo_set_source_surface(cr, source, 0, 0);
-    cairo_clip(cr);
-    cairo_paint(cr);
+    if(type == FIXEDZONE)
+    {
+        cairo_set_source_surface(cr, source, 0, 0);
+        cairo_clip(cr);
+        cairo_paint(cr);
+    }
     cairo_restore(cr);
 }

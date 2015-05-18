@@ -17,6 +17,9 @@ PatchMatchApp::PatchMatchApp()
     tool_delete = GTK_WIDGET(gtk_builder_get_object(builder, "tool_delete"));
     tool_reshuffle_rectangle = GTK_WIDGET(gtk_builder_get_object(builder, "tool_reshuffle_rectangle"));
     tool_reshuffle_free = GTK_WIDGET(gtk_builder_get_object(builder, "tool_reshuffle_free"));
+    tool_replace_rectangle = GTK_WIDGET(gtk_builder_get_object(builder, "tool_replace_rectangle"));
+    tool_replace_free = GTK_WIDGET(gtk_builder_get_object(builder, "tool_replace_free"));
+    tool_retarget = GTK_WIDGET(gtk_builder_get_object(builder, "tool_retarget"));
     tool_process = GTK_WIDGET(gtk_builder_get_object(builder, "tool_process"));
     gtk_widget_add_events(drawing_area, GDK_POINTER_MOTION_MASK | 
                           GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
@@ -35,6 +38,9 @@ PatchMatchApp::PatchMatchApp()
     g_signal_connect(G_OBJECT(tool_reshuffle_rectangle), "clicked", G_CALLBACK(PatchMatchApp::cb_toolbar_clicked), this);
     g_signal_connect(G_OBJECT(tool_reshuffle_free), "clicked", G_CALLBACK(PatchMatchApp::cb_toolbar_clicked), this);
     g_signal_connect(G_OBJECT(tool_process), "clicked", G_CALLBACK(PatchMatchApp::cb_toolbar_clicked), this);
+    g_signal_connect(G_OBJECT(tool_replace_rectangle), "clicked", G_CALLBACK(PatchMatchApp::cb_toolbar_clicked), this);
+    g_signal_connect(G_OBJECT(tool_replace_free), "clicked", G_CALLBACK(PatchMatchApp::cb_toolbar_clicked), this);
+    g_signal_connect(G_OBJECT(tool_retarget), "clicked", G_CALLBACK(PatchMatchApp::cb_toolbar_clicked), this);
     // Other initializations
     filename = NULL;
     source = NULL;
@@ -190,6 +196,18 @@ void PatchMatchApp::cb_button_pressed(GtkWidget *widget, GdkEvent *event, gpoint
             self->zones->push_back(new MaskedZone(e->x/self->scale, e->y/self->scale, FIXEDZONE));
             gtk_widget_queue_draw(self->drawing_area);
         }
+        else if(self->active_tool == TOOL_REPLACE_RECTANGLE)
+        {
+            self->button_pressed = true;
+            self->zones->push_back(new Zone(e->x/self->scale, e->y/self->scale, REPLACEZONE));
+            gtk_widget_queue_draw(self->drawing_area);
+        }
+        else if(self->active_tool == TOOL_REPLACE_FREE_HAND)
+        {
+            self->button_pressed = true;
+            self->zones->push_back(new MaskedZone(e->x/self->scale, e->y/self->scale, REPLACEZONE));
+            gtk_widget_queue_draw(self->drawing_area);
+        }
     }
 }
 
@@ -201,9 +219,13 @@ void PatchMatchApp::cb_button_released(GtkWidget *widget, GdkEvent *event, gpoin
     {
         self->button_pressed = false;
         if((self->active_tool == TOOL_RESHUFFLE_RECTANGLE ||
-           self->active_tool == TOOL_RESHUFFLE_FREE_HAND) && 
-           self->zones->size() >= 0)
+            self->active_tool == TOOL_RESHUFFLE_FREE_HAND ||
+            self->active_tool == TOOL_REPLACE_RECTANGLE || 
+            self->active_tool == TOOL_REPLACE_FREE_HAND) && 
+            self->zones->size() >= 0)
+        {
             self->zones->back()->finalize();
+        }
     }
 }
 
@@ -220,8 +242,10 @@ void PatchMatchApp::cb_motion_notify(GtkWidget *widget, GdkEvent *event, gpointe
             gtk_widget_queue_draw(self->drawing_area);
         }
         else if((self->active_tool == TOOL_RESHUFFLE_RECTANGLE ||
-            self->active_tool == TOOL_RESHUFFLE_FREE_HAND) && 
-           self->zones->size() >= 0)
+            self->active_tool == TOOL_RESHUFFLE_FREE_HAND ||
+            self->active_tool == TOOL_REPLACE_RECTANGLE || 
+            self->active_tool == TOOL_REPLACE_FREE_HAND) && 
+            self->zones->size() >= 0)
         {
             self->zones->back()->extend(e->x/self->scale, e->y/self->scale);
             gtk_widget_queue_draw(self->drawing_area);
@@ -247,6 +271,19 @@ void PatchMatchApp::cb_toolbar_clicked(GtkWidget* widget, gpointer app)
     else if(widget == self->tool_reshuffle_free)
     {
         self->active_tool = TOOL_RESHUFFLE_FREE_HAND;
+    }
+    else if(widget == self->tool_replace_rectangle)
+    {
+        printf("Selected replace rectangle tool\n");
+        self->active_tool = TOOL_REPLACE_RECTANGLE;
+    }
+    else if(widget == self->tool_replace_free)
+    {
+        self->active_tool = TOOL_REPLACE_FREE_HAND;
+    }
+    else if(widget == self->tool_retarget)
+    {
+        self->active_tool = TOOL_RETARGET;
     }
     else if(widget == self->tool_process)
     {
