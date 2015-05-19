@@ -49,7 +49,6 @@ void Zone::draw(cairo_t *cr, cairo_surface_t *source, int scale, bool draw_outli
         if(type == REPLACEZONE)
         {
             cairo_set_source_rgb(cr, 1.0, 1.0, 0.0);
-            printf("Painting replace zone\n");
         }
         else
             cairo_set_source_rgb(cr, 1.0, 0.0, 0.0);
