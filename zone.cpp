@@ -27,6 +27,8 @@ void Zone::finalize()
 {
     src_x = min(src_x, src_x + src_width);
     src_y = min(src_y, src_y + src_height);
+    dst_x = src_x;
+    dst_y = src_y;
     src_width = abs(src_width);
     src_height = abs(src_height);
 }
@@ -117,8 +119,6 @@ bool MaskedZone::contains(int x, int y, int scale)
     {
         unsigned char *p = cairo_image_surface_get_data(mask);
         int stride = cairo_image_surface_get_stride(mask);
-        int width = cairo_image_surface_get_width(mask);
-        int height = cairo_image_surface_get_height(mask);
         p += scale*(y - dst_y)*stride + x - dst_x;
         for(int i = 0; i < scale; i++)
         {
