@@ -1,3 +1,6 @@
 patchmatch
 *.o
 *.*~
+*.png
+*.jpeg
+*.jpg
