@@ -92,9 +92,9 @@ PatchMatchApp::~PatchMatchApp()
     if(filename != NULL)
         delete filename;
     if(target != NULL)
-        g_object_unref(target);
+        cairo_surface_destroy(target);
     if(source != NULL)
-        g_object_unref(source);
+        cairo_surface_destroy(source);
     for(unsigned int i = 0; i < zones->size(); i++)
         delete zones->at(i);
     delete zones;
@@ -192,6 +192,7 @@ void PatchMatchApp::cb_retarget_retarget(GtkWidget *widget, GdkEvent *event, gpo
     PatchMatchApp *self = (PatchMatchApp*) app;
     self->xscale = gtk_spin_button_get_value(GTK_SPIN_BUTTON(self->retarget_xscale));
     self->yscale = gtk_spin_button_get_value(GTK_SPIN_BUTTON(self->retarget_yscale));
+    gtk_widget_hide(self->retarget_dialog);
     gtk_widget_queue_draw(self->drawing_area);
 }
 
