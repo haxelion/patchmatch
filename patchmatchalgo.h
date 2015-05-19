@@ -27,7 +27,7 @@ public:
     std::vector<Zone*> *zones;
 
     PatchMatchAlgo();
-    void run(cairo_surface_t *source, cairo_surface_t *target, std::vector<Zone*> *zones);
+    void run(cairo_surface_t *source, cairo_surface_t *target, std::vector<Zone*> *zones, double xscale, double yscale);
     float getProgress()
     {
         if(work_done != 0)

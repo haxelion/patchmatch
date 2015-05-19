@@ -13,7 +13,7 @@ PatchMatchAlgo::PatchMatchAlgo()
     zones = NULL;
 }
 
-void PatchMatchAlgo::run(cairo_surface_t *source, cairo_surface_t *target, std::vector<Zone*> *zones)
+void PatchMatchAlgo::run(cairo_surface_t *source, cairo_surface_t *target, std::vector<Zone*> *zones, double xscale, double yscale)
 {
     if(thread != NULL)
         return;
@@ -36,11 +36,14 @@ void PatchMatchAlgo::run(cairo_surface_t *source, cairo_surface_t *target, std::
 
     this->target = cairo_image_surface_create(
         CAIRO_FORMAT_RGB24, 
-        cairo_image_surface_get_width(target), 
-        cairo_image_surface_get_height(target));
+        cairo_image_surface_get_width(target)*xscale, 
+        cairo_image_surface_get_height(target)*yscale);
     cr = cairo_create(this->target);
+    cairo_save(cr);
+    cairo_scale(cr, xscale, yscale);
     cairo_set_source_surface(cr, target, 0, 0);
     cairo_paint(cr);
+    cairo_restore(cr);
     for(unsigned int i = 0; i < zones->size(); i++)
     {
         zones->at(i)->draw(cr, source, 1, false);
@@ -243,8 +246,6 @@ inline void patchVoting(cairo_surface_t *source, cairo_surface_t *target, std::v
     int t_rowstride = cairo_image_surface_get_stride(target);
     int target_height = cairo_image_surface_get_height(target);
     int target_width = cairo_image_surface_get_width(target);
-    int source_height = cairo_image_surface_get_height(source);
-    int source_width = cairo_image_surface_get_width(source);
 
     unsigned char *s_pixels = cairo_image_surface_get_data(source);
     unsigned char *t_pixels = cairo_image_surface_get_data(target);

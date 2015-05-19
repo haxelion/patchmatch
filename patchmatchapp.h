@@ -48,19 +48,25 @@ public:
     GtkWidget *drawing_area;
     GtkWidget *main_window;
 
+    GtkWidget *settings_dialog;
     GtkWidget *settings_apply;
     GtkWidget *settings_cancel;
     GtkWidget *settings_patch_w;
     GtkWidget *settings_pm_iter;
     GtkWidget *settings_em_iter;
-    GtkWidget *settings_dialog;
+
+    GtkWidget *retarget_dialog;
+    GtkWidget *retarget_xscale;
+    GtkWidget *retarget_yscale;
+    GtkWidget *retarget_retarget;
+    GtkWidget *retarget_cancel;
 
     GtkWidget *progress_window;
     GtkWidget *progress_cancel;
     GtkWidget *progress_bar;
     cairo_surface_t *source;
     cairo_surface_t *target;
-    double scale;
+    double scale, xscale, yscale;
     char *filename;
     std::vector<Zone*> *zones;
     bool button_pressed;
@@ -77,6 +83,8 @@ public:
     static void cb_toolbar_clicked(GtkWidget* widget, gpointer app);
     static void cb_settings_apply(GtkWidget *widget, GdkEvent *event, gpointer app);
     static gboolean cb_settings_canceled(GtkWidget *widget, GdkEvent *event, gpointer app);
+    static void cb_retarget_retarget(GtkWidget *widget, GdkEvent *event, gpointer app);
+    static gboolean cb_retarget_canceled(GtkWidget *widget, GdkEvent *event, gpointer app);
     static void cb_button_pressed(GtkWidget *widget, GdkEvent *event, gpointer app);
     static void cb_button_released(GtkWidget *widget, GdkEvent *event, gpointer app);
     static void cb_motion_notify(GtkWidget *widget, GdkEvent *event, gpointer app);

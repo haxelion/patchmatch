@@ -34,6 +34,12 @@ PatchMatchApp::PatchMatchApp()
     settings_pm_iter = GTK_WIDGET(gtk_builder_get_object(builder, "settings_pm_iter"));
     settings_em_iter = GTK_WIDGET(gtk_builder_get_object(builder, "settings_em_iter"));
 
+    retarget_dialog = GTK_WIDGET(gtk_builder_get_object(builder, "retarget_dialog"));
+    retarget_xscale = GTK_WIDGET(gtk_builder_get_object(builder, "retarget_xscale"));
+    retarget_yscale = GTK_WIDGET(gtk_builder_get_object(builder, "retarget_yscale"));
+    retarget_retarget = GTK_WIDGET(gtk_builder_get_object(builder, "retarget_retarget"));
+    retarget_cancel = GTK_WIDGET(gtk_builder_get_object(builder, "retarget_cancel"));
+
     progress_window = GTK_WIDGET(gtk_builder_get_object(builder, "progress_window"));
     progress_bar = GTK_WIDGET(gtk_builder_get_object(builder, "progress_bar"));
     progress_cancel = GTK_WIDGET(gtk_builder_get_object(builder, "progress_cancel"));
@@ -61,6 +67,10 @@ PatchMatchApp::PatchMatchApp()
     g_signal_connect(G_OBJECT(settings_apply), "clicked", G_CALLBACK(PatchMatchApp::cb_settings_apply), this);
     g_signal_connect(G_OBJECT(settings_cancel), "clicked", G_CALLBACK(PatchMatchApp::cb_settings_canceled), this);
     g_signal_connect(G_OBJECT(settings_dialog), "delete-event", G_CALLBACK(PatchMatchApp::cb_settings_canceled), this);
+
+    g_signal_connect(G_OBJECT(retarget_retarget), "clicked", G_CALLBACK(PatchMatchApp::cb_retarget_retarget), this);
+    g_signal_connect(G_OBJECT(retarget_cancel), "clicked", G_CALLBACK(PatchMatchApp::cb_retarget_canceled), this);
+    g_signal_connect(G_OBJECT(retarget_dialog), "delete-event", G_CALLBACK(PatchMatchApp::cb_retarget_canceled), this);
 
     g_signal_connect(G_OBJECT(progress_window), "delete-event", G_CALLBACK(PatchMatchApp::cb_patchmatch_canceled), this);
     g_signal_connect(G_OBJECT(progress_cancel), "clicked", G_CALLBACK(PatchMatchApp::cb_patchmatch_canceled), this);
@@ -177,6 +187,20 @@ gboolean PatchMatchApp::cb_settings_canceled(GtkWidget *widget, GdkEvent *event,
     return TRUE;
 }
 
+void PatchMatchApp::cb_retarget_retarget(GtkWidget *widget, GdkEvent *event, gpointer app)
+{
+    PatchMatchApp *self = (PatchMatchApp*) app;
+    self->xscale = gtk_spin_button_get_value(GTK_SPIN_BUTTON(self->retarget_xscale));
+    self->yscale = gtk_spin_button_get_value(GTK_SPIN_BUTTON(self->retarget_yscale));
+    gtk_widget_queue_draw(self->drawing_area);
+}
+
+gboolean PatchMatchApp::cb_retarget_canceled(GtkWidget *widget, GdkEvent *event, gpointer app)
+{
+    PatchMatchApp *self = (PatchMatchApp*) app;
+    gtk_widget_hide(self->retarget_dialog);
+    return TRUE;
+}
 gboolean PatchMatchApp::cb_draw(GtkWidget *widget, cairo_t *cr, gpointer app)
 {
     guint width, height;
@@ -186,11 +210,14 @@ gboolean PatchMatchApp::cb_draw(GtkWidget *widget, cairo_t *cr, gpointer app)
     {
         width = gtk_widget_get_allocated_width(widget);
         height = gtk_widget_get_allocated_height(widget);
-        self->scale = fmin(width/(double) cairo_image_surface_get_width(self->target), 
-                           height/(double) cairo_image_surface_get_height(self->target));
+        self->scale = fmin(width/(double) cairo_image_surface_get_width(self->target)/self->xscale, 
+                           height/(double) cairo_image_surface_get_height(self->target)/self->yscale);
         cairo_scale(cr, self->scale, self->scale); 
+        cairo_save(cr);
+        cairo_scale(cr, self->xscale, self->yscale); 
         cairo_set_source_surface(cr, self->target, 0, 0);
         cairo_paint(cr);
+        cairo_restore(cr);
         if(self->algo.isDone())
         {
             for(unsigned int i = 0; i < self->zones->size(); i++)
@@ -331,13 +358,17 @@ void PatchMatchApp::cb_toolbar_clicked(GtkWidget* widget, gpointer app)
     }
     else if(widget == self->tool_retarget)
     {
-        self->active_tool = TOOL_RETARGET;
+        gtk_spin_button_set_value(GTK_SPIN_BUTTON(self->retarget_xscale), self->xscale);
+        gtk_spin_button_set_value(GTK_SPIN_BUTTON(self->retarget_yscale), self->yscale);
+        gtk_widget_show_all(self->retarget_dialog);
     }
     else if(widget == self->tool_process)
     {
         if(self->source != NULL && self->target != NULL)
         {
-            self->algo.run(self->source, self->target, self->zones);
+            self->algo.run(self->source, self->target, self->zones, self->xscale, self->yscale);
+            self->xscale = 1.0;
+            self->yscale = 1.0;
             gtk_button_set_label(GTK_BUTTON(self->progress_cancel), "Cancel");
             gtk_button_set_relief(GTK_BUTTON(self->progress_cancel), GTK_RELIEF_NORMAL);
             gtk_widget_show_all(self->progress_window);
@@ -456,7 +487,8 @@ void PatchMatchApp::openFile(const char *filename)
     cairo_destroy(cr);
 
     g_object_unref(pixbuf);
-     
+    xscale = 1.0;
+    yscale = 1.0;
     int length = strlen(filename) + 1;
     this->filename = new char[length];
     strncpy(this->filename, filename, length);
