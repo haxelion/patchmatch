@@ -97,7 +97,7 @@ gpointer PatchMatchAlgo::threadFunction(gpointer data)
         if(first_loop)
         {
             first_loop = false;
-            randomANN(source_scaled, target_scaled, annx, anny, annd, self->patch_w);
+            randomANN(source_scaled, target_scaled, self->zones, annx, anny, annd, self->patch_w, scale);
         }
         else
         {
@@ -107,7 +107,7 @@ gpointer PatchMatchAlgo::threadFunction(gpointer data)
         }
         for(int i = 0; i < self->em_iteration && !self->terminate; i++)
         {
-            patchMatch(source_scaled, target_scaled, self->zones, annx, anny, annd, self->patch_w, self->patchmatch_iteration);
+            patchMatch(source_scaled, target_scaled, self->zones, annx, anny, annd, self->patch_w, self->patchmatch_iteration, scale);
             patchVoting(source_scaled, target_scaled, self->zones, annx, anny, self->patch_w);
             if(scale != 1)
                 enforceFixedZone(self->source, target_scaled, self->zones, scale);
@@ -123,6 +123,15 @@ gpointer PatchMatchAlgo::threadFunction(gpointer data)
     self->done = true;
     cairo_surface_destroy(source_scaled);
     cairo_surface_destroy(target_scaled);
+    for(int i = 0; i < target_width; i++)
+    {
+        delete annx[i];
+        delete anny[i];
+        delete annd[i];
+    }
+    delete annx;
+    delete anny;
+    delete annd;
     g_thread_unref(self->thread);
     self->thread = NULL;
     return NULL;
@@ -168,7 +177,7 @@ inline int distance(cairo_surface_t *source, cairo_surface_t *target, int sx, in
     return d;
 }
 
-inline void randomANN(cairo_surface_t *source, cairo_surface_t *target, int **annx, int **anny, int **annd, int patch_w)
+inline void randomANN(cairo_surface_t *source, cairo_surface_t *target, std::vector<Zone*> *zones, int **annx, int **anny, int **annd, int patch_w, int scale)
 {
     int target_height = cairo_image_surface_get_height(target) - patch_w;
     int target_width = cairo_image_surface_get_width(target) - patch_w;
@@ -180,8 +189,12 @@ inline void randomANN(cairo_surface_t *source, cairo_surface_t *target, int **an
     for(int i = 0; i < target_width; i++)
         for(int j = 0; j < target_height; j++)
         {
-            annx[i][j] = rand()%source_width;
-            anny[i][j] = rand()%source_height;
+            do
+            {
+                annx[i][j] = rand()%source_width;
+                anny[i][j] = rand()%source_height;
+            }
+            while(!isReplaceSatisfied(zones, i, j, annx[i][j], anny[i][j], patch_w, scale));
             annd[i][j] = distance(source, target, annx[i][j], anny[i][j], i, j, patch_w);
         }
 }
@@ -274,22 +287,7 @@ inline void patchVoting(cairo_surface_t *source, cairo_surface_t *target, std::v
         }
 }
 
-inline void enforceFixedZone(cairo_surface_t *source, cairo_surface_t *target, std::vector<Zone*> *zones, int scale)
-{
-    // Enforce fixed zone constraints
-    cairo_t *cr = cairo_create(target);
-    for(unsigned int i = 0; i < zones->size(); i++)
-    {
-        if(zones->at(i)->type == FIXEDZONE)
-        {
-            zones->at(i)->draw(cr, source, scale, false);
-        }
-    }
-    cairo_surface_flush(target);
-    cairo_destroy(cr);
-}
-
-inline void patchMatch(cairo_surface_t *source, cairo_surface_t *target, std::vector<Zone*> *zones, int **annx, int **anny, int **annd, int patch_w, int iter)
+inline void patchMatch(cairo_surface_t *source, cairo_surface_t *target, std::vector<Zone*> *zones, int **annx, int **anny, int **annd, int patch_w, int iter, int scale)
 {
     int target_height = cairo_image_surface_get_height(target);
     int target_width = cairo_image_surface_get_width(target);
@@ -331,7 +329,8 @@ inline void patchMatch(cairo_surface_t *source, cairo_surface_t *target, std::ve
                 {
                     int xp = annx[x-xchange][y] + xchange;
                     int yp = anny[x-xchange][y];
-                    if(xp < source_width - patch_w && xp >= 0)
+                    if(xp < source_width - patch_w && xp >= 0 && 
+                       isReplaceSatisfied(zones, x, y, xp, yp, patch_w, scale))
                     {
                         int d = distance(source, target, xp, yp, x, y, patch_w);
                         if(d < dbest)
@@ -347,7 +346,8 @@ inline void patchMatch(cairo_surface_t *source, cairo_surface_t *target, std::ve
                 {
                     int xp = annx[x][y - ychange];
                     int yp = anny[x][y - ychange] + ychange;
-                    if(yp < source_height - patch_w && yp >= 0)
+                    if(yp < source_height - patch_w && yp >= 0 && 
+                       isReplaceSatisfied(zones, x, y, xp, yp, patch_w, scale))
                     {
                         int d = distance(source, target, xp, yp, x, y, patch_w);
                         if(d < dbest)
@@ -367,8 +367,13 @@ inline void patchMatch(cairo_surface_t *source, cairo_surface_t *target, std::ve
                     int xmax = min(xbest + mag, source_width - patch_w - 1);
                     int ymin = max(ybest - mag, 0);
                     int ymax = min(ybest + mag, source_height - patch_w - 1);
-                    int xp = xmin + rand()%(xmax - xmin);
-                    int yp = ymin + rand()%(ymax - ymin);
+                    int xp, yp;
+                    do
+                    {
+                        xp = xmin + rand()%(xmax - xmin);
+                        yp = ymin + rand()%(ymax - ymin);
+                    }
+                    while(!isReplaceSatisfied(zones, x, y, xp, yp, patch_w, scale));
                     int d = distance(source, target, xp, yp, x, y, patch_w);
                     if(d < dbest)
                     {
@@ -385,4 +390,32 @@ inline void patchMatch(cairo_surface_t *source, cairo_surface_t *target, std::ve
             }
         }
     }
+}
+
+inline void enforceFixedZone(cairo_surface_t *source, cairo_surface_t *target, std::vector<Zone*> *zones, int scale)
+{
+    // Enforce fixed zone constraints
+    cairo_t *cr = cairo_create(target);
+    for(unsigned int i = 0; i < zones->size(); i++)
+    {
+        if(zones->at(i)->type == FIXEDZONE)
+        {
+            zones->at(i)->draw(cr, source, scale, false);
+        }
+    }
+    cairo_surface_flush(target);
+    cairo_destroy(cr);
+}
+
+inline bool isReplaceSatisfied(std::vector<Zone*> *zones, int sx, int sy, int tx, int ty, int patch_w, int scale)
+{
+    for(unsigned int i = 0; i < zones->size(); i++)
+    {
+        if(zones->at(i)->type == REPLACEZONE && 
+           zones->at(i)->contains(tx + patch_w/2, ty + patch_w/2, scale) &&
+           zones->at(i)->contains(sx + patch_w/2, sy + patch_w/2, scale))
+            return false;
+            
+    }
+    return true;
 }

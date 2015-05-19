@@ -43,10 +43,11 @@ public:
 
 inline int distance(cairo_surface_t *source_scaled, cairo_surface_t *target, int sx, int sy, int tx, int ty, int patch_w);
 inline cairo_surface_t * scaleSurface(cairo_surface_t *surface, int scale);
-inline void randomANN(cairo_surface_t *source, cairo_surface_t *target, int **annx, int **anny, int **annd, int patch_w);
+inline void randomANN(cairo_surface_t *source, cairo_surface_t *target, std::vector<Zone*> *zones, int **annx, int **anny, int **annd, int patch_w, int scale);
 inline void rescaleANN(cairo_surface_t *source, cairo_surface_t *target, int **annx, int **anny, int **annd, int patch_w);
 inline void patchVoting(cairo_surface_t *source, cairo_surface_t *target, std::vector<Zone*> *zones, int **annx, int **anny, int patch_w);
+inline void patchMatch(cairo_surface_t *source, cairo_surface_t *target, std::vector<Zone*> *zones, int **annx, int **anny, int **annd, int patch_w, int iter, int scale);
 inline void enforceFixedZone(cairo_surface_t *source, cairo_surface_t *target, std::vector<Zone*> *zones, int scale);
-inline void patchMatch(cairo_surface_t *source, cairo_surface_t *target, std::vector<Zone*> *zones, int **annx, int **anny, int **annd, int patch_w, int iter);
+inline bool isReplaceSatisfied(std::vector<Zone*> *zones, int sx, int sy, int tx, int ty, int patch_w, int scale);
 
 #endif
