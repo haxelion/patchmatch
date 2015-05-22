@@ -25,7 +25,6 @@ std::vector<std::pair<int, int> > Line::getIntersect(int width, int height, int 
     double x = x1;
     double y = y1;
     std::vector<std::pair<int, int > > patches;
-    printf("Entering getIntersect raytracing\n");
 
     for(int i = 0; i < patch_w; i++)
         for(int j = 0; j < patch_w; j++)
@@ -33,13 +32,10 @@ std::vector<std::pair<int, int> > Line::getIntersect(int width, int height, int 
                ((int) x - i) < width - patch_w && ((int) y - j) < height - patch_w)
                 patches.push_back(std::make_pair((int) x - i, (int) y - j));
 
-    printf("dx = %lf, dy = %lf\n", dx, dy);
     while((x - x1)/dx <= 1 && (y - y1)/dy <= 1)
     {
-        double lx = (floor(x + dx/fabs(dx)) - x)/dx;
-        double ly = (floor(y + dy/fabs(dy)) - y)/dy;
-        printf("lx = %lf, ly = %lf\n", lx, ly);
-        printf("x = %lf, y = %lf\n", x, y);
+        double lx = (round(x + dx/fabs(dx)/1.9999) - x)/dx;
+        double ly = (round(y + dy/fabs(dy)/1.9999) - y)/dy;
         if(lx == ly)
         {
             x += dx*lx;
@@ -96,15 +92,18 @@ void Line::applyLineConstraint(int **annx, int **anny, int width, int height, in
 {
     std::vector<std::pair<int, int> > patches = getIntersect(width, height, patch_w, scale);
     std::vector<std::pair<int, int> > matched = getMatchedPatch(annx, anny, patches);
-    Line source_line = ransac(matched, threshold/scale);
+    Line source_line = ransac(matched, patch_w, threshold/scale);
+    printf("Target line: (%d, %d) -> (%d, %d)\n", x1, y1, x2, y2);
+    printf("Source line: (%d, %d) -> (%d, %d)\n", source_line.x1, source_line.y1, source_line.x2, source_line.y2);
+    double tdx = (x2 - x1)/(double) scale;
+    double tdy = (y2 - y1)/(double) scale;
+    double tdl = sqrt(tdx*tdx + tdy*tdy);
+    double sdx = source_line.x2 - source_line.x1;
+    double sdy = source_line.y2 - source_line.y1;
+    double sdl = sqrt(sdx*sdx + sdy*sdy);
+    printf("td = (%lf, %lf), sd = (%lf, %lf)\n", tdx, tdy, sdx, sdy);
     for(unsigned int i = 0; i < patches.size(); i++)
     {
-        double tdx = (x2 - x1)/(double) scale;
-        double tdy = (y2 - y1)/(double) scale;
-        double tdl = sqrt(tdx*tdx + tdy*tdy);
-        double sdx = source_line.x2 - source_line.x1;
-        double sdy = source_line.x2 - source_line.x1;
-        double sdl = sqrt(sdx*sdx + sdy*sdy);
         double td = ((patches[i].first + patch_w/2.0 - x1/(double) scale)*tdy - tdx*(patches[i].second + patch_w/2.0 - y1/(double) scale))/tdl;
         double sd = ((matched[i].first + patch_w/2.0 - source_line.x1)*sdy - sdx*(matched[i].second + patch_w/2.0 - source_line.y1))/sdl;
         if(fabs(sd) < threshold)
@@ -113,7 +112,6 @@ void Line::applyLineConstraint(int **annx, int **anny, int width, int height, in
             double ny = matched[i].first + sdx/sdl * (td - sd) - patch_w/2.0;
             nx = min(max(0, nx), width - patch_w - 1);
             ny = min(max(0, ny), height - patch_w - 1);
-            printf("Adjusting (%d, %d) to (%lf, %lf)\n", patches[i].first, patches[i].second, nx, ny);
             annx[patches[i].first][patches[i].second] = (int)round(nx);
             anny[patches[i].first][patches[i].second] = (int)round(ny);
         }
@@ -128,10 +126,11 @@ std::vector<std::pair<int, int> > getMatchedPatch(int **annx, int **anny, std::v
     return matched;
 }
 
-Line ransac(std::vector<std::pair<int, int> > points, double threshold)
+Line ransac(std::vector<std::pair<int, int> > points, int patch_w, double threshold)
 {
     int best_subset = 0;
     int best_p1 = 0, best_p2 = 1;
+    double mx, my, cx, cy;
     srand(time(NULL));
     for(int i = 0; i < RANSAC_ITER; i++)
     {
@@ -149,7 +148,7 @@ Line ransac(std::vector<std::pair<int, int> > points, double threshold)
         int subset = 0;
         for(unsigned int j = 0; j < points.size(); j++)
         {
-            if(fabs(dy*points[j].first - dx*points[j].second + xy)/dl < threshold)
+            if(fabs(dy*(points[j].first + patch_w/2.0) - dx*(points[j].second + patch_w/2.0) + xy)/dl < threshold)
                 subset++;
         }
 
@@ -158,9 +157,43 @@ Line ransac(std::vector<std::pair<int, int> > points, double threshold)
             best_subset = subset;
             best_p1 = p1;
             best_p2 = p2;
+            mx = 0;
+            my = 0;
+            cx = 0;
+            cy = 0;
+            for(unsigned int j = 0; j < points.size(); j++)
+                if(fabs(dy*(points[j].first + patch_w/2.0) - dx*(points[j].second + patch_w/2.0) + xy)/dl < threshold)
+                {
+                    mx += points[j].first;
+                    my += points[j].second;
+                }
+            mx = mx/subset;
+            my = my/subset;
+            for(unsigned int j = 0; j < points.size(); j++)
+                if(fabs(dy*(points[j].first + patch_w/2.0) - dx*(points[j].second + patch_w/2.0) + xy)/dl < threshold)
+                {
+                    if(points[j].second - my < 0)
+                        cx -= points[j].first - mx;
+                    else
+                        cx += points[j].first - mx;
+                    if(points[j].first - mx < 0)
+                        cy -= points[j].second - my;
+                    else
+                        cy += points[j].second - my;
+                }
         }
     }
-    Line line(points[best_p1].first, points[best_p1].second);
-    line.extend(points[best_p2].first, points[best_p2].second);
+    int xmin = points[0].first;
+    int xmax = points[0].first;
+    for(unsigned int j = 0; j < points.size(); j++)
+    {
+        if(points[j].first < xmin)
+            xmin = points[j].first;
+        else if(points[j].first > xmax)
+            xmax = points[j].first;
+    }
+    Line line(xmin, (xmin - mx)/cx*cy + my);
+    line.extend(xmax, (xmax - mx)/cx*cy + my);
+
     return line;
 }

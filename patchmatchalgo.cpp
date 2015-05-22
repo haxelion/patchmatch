@@ -5,7 +5,7 @@ PatchMatchAlgo::PatchMatchAlgo()
     em_iteration = 8;
     patchmatch_iteration = 5;
     patch_w = 7;
-    threshold = 64;
+    threshold = patch_w;
     thread = NULL;
     source = NULL;
     target = NULL;

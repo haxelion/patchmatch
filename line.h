@@ -11,7 +11,7 @@
 #define min(a,b) (a < b ? a : b)
 #define max(a,b) (a > b ? a : b)
 
-#define RANSAC_ITER 100
+#define RANSAC_ITER 100000
 
 class Line
 {
@@ -26,6 +26,6 @@ public:
 };
 
 std::vector<std::pair<int, int> > getMatchedPatch(int **annx, int **anny, std::vector<std::pair<int, int> > patches);
-Line ransac(std::vector<std::pair<int, int> > points, double threshold);
+Line ransac(std::vector<std::pair<int, int> > points, int patch_w, double threshold);
 
 #endif
