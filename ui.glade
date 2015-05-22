@@ -52,6 +52,11 @@
     <property name="can_focus">False</property>
     <property name="pixbuf">tool-free-select.png</property>
   </object>
+  <object class="GtkImage" id="img-tool-line">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="pixbuf">tool-line.png</property>
+  </object>
   <object class="GtkImage" id="img-tool-move">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
@@ -196,11 +201,11 @@
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <child>
-              <object class="GtkToolButton" id="tool_move">
+              <object class="GtkToolButton" id="tool_delete">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="use_underline">True</property>
-                <property name="icon_widget">img-tool-move</property>
+                <property name="icon_widget">img-tool-delete</property>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -208,11 +213,11 @@
               </packing>
             </child>
             <child>
-              <object class="GtkToolButton" id="tool_delete">
+              <object class="GtkToolButton" id="tool_move">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="use_underline">True</property>
-                <property name="icon_widget">img-tool-delete</property>
+                <property name="icon_widget">img-tool-move</property>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -293,6 +298,18 @@
               <object class="GtkSeparatorToolItem" id="toolbutton3">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="homogeneous">True</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkToolButton" id="tool_line">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="use_underline">True</property>
+                <property name="icon_widget">img-tool-line</property>
               </object>
               <packing>
                 <property name="expand">False</property>

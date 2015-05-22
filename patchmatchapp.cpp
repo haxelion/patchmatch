@@ -22,6 +22,7 @@ PatchMatchApp::PatchMatchApp()
     tool_reshuffle_free = GTK_WIDGET(gtk_builder_get_object(builder, "tool_reshuffle_free"));
     tool_replace_rectangle = GTK_WIDGET(gtk_builder_get_object(builder, "tool_replace_rectangle"));
     tool_replace_free = GTK_WIDGET(gtk_builder_get_object(builder, "tool_replace_free"));
+    tool_line = GTK_WIDGET(gtk_builder_get_object(builder, "tool_line"));
     tool_retarget = GTK_WIDGET(gtk_builder_get_object(builder, "tool_retarget"));
     tool_process = GTK_WIDGET(gtk_builder_get_object(builder, "tool_process"));
     gtk_widget_add_events(drawing_area, GDK_POINTER_MOTION_MASK | 
@@ -59,10 +60,11 @@ PatchMatchApp::PatchMatchApp()
     g_signal_connect(G_OBJECT(tool_delete), "clicked", G_CALLBACK(PatchMatchApp::cb_toolbar_clicked), this);
     g_signal_connect(G_OBJECT(tool_reshuffle_rectangle), "clicked", G_CALLBACK(PatchMatchApp::cb_toolbar_clicked), this);
     g_signal_connect(G_OBJECT(tool_reshuffle_free), "clicked", G_CALLBACK(PatchMatchApp::cb_toolbar_clicked), this);
-    g_signal_connect(G_OBJECT(tool_process), "clicked", G_CALLBACK(PatchMatchApp::cb_toolbar_clicked), this);
     g_signal_connect(G_OBJECT(tool_replace_rectangle), "clicked", G_CALLBACK(PatchMatchApp::cb_toolbar_clicked), this);
     g_signal_connect(G_OBJECT(tool_replace_free), "clicked", G_CALLBACK(PatchMatchApp::cb_toolbar_clicked), this);
+    g_signal_connect(G_OBJECT(tool_line), "clicked", G_CALLBACK(PatchMatchApp::cb_toolbar_clicked), this);
     g_signal_connect(G_OBJECT(tool_retarget), "clicked", G_CALLBACK(PatchMatchApp::cb_toolbar_clicked), this);
+    g_signal_connect(G_OBJECT(tool_process), "clicked", G_CALLBACK(PatchMatchApp::cb_toolbar_clicked), this);
 
     g_signal_connect(G_OBJECT(settings_apply), "clicked", G_CALLBACK(PatchMatchApp::cb_settings_apply), this);
     g_signal_connect(G_OBJECT(settings_cancel), "clicked", G_CALLBACK(PatchMatchApp::cb_settings_canceled), this);
@@ -80,6 +82,7 @@ PatchMatchApp::PatchMatchApp()
     source = NULL;
     target = NULL;
     zones = new std::vector<Zone*>();
+    lines = new std::vector<Line*>();
     button_pressed = false;
     active_tool = TOOL_NONE;
     // Lock & Load
@@ -98,6 +101,9 @@ PatchMatchApp::~PatchMatchApp()
     for(unsigned int i = 0; i < zones->size(); i++)
         delete zones->at(i);
     delete zones;
+    for(unsigned int i = 0; i < lines->size(); i++)
+        delete lines->at(i);
+    delete lines;
 }
 
 void PatchMatchApp::cb_menu_file_open(GtkWidget* widget, gpointer app)
@@ -222,9 +228,9 @@ gboolean PatchMatchApp::cb_draw(GtkWidget *widget, cairo_t *cr, gpointer app)
         if(self->algo.isDone())
         {
             for(unsigned int i = 0; i < self->zones->size(); i++)
-            {
                 self->zones->at(i)->draw(cr, self->source, 1, true);
-            }
+            for(unsigned int i = 0; i < self->lines->size(); i++)
+                self->lines->at(i)->draw(cr, 1);
         }
     }
     return FALSE;
@@ -285,6 +291,12 @@ void PatchMatchApp::cb_button_pressed(GtkWidget *widget, GdkEvent *event, gpoint
             self->zones->push_back(new MaskedZone(e->x/self->scale, e->y/self->scale, REPLACEZONE));
             gtk_widget_queue_draw(self->drawing_area);
         }
+        else if(self->active_tool == TOOL_LINE)
+        {
+            self->button_pressed = true;
+            self->lines->push_back(new Line(e->x/self->scale, e->y/self->scale));
+            gtk_widget_queue_draw(self->drawing_area);
+        }
     }
 }
 
@@ -299,7 +311,7 @@ void PatchMatchApp::cb_button_released(GtkWidget *widget, GdkEvent *event, gpoin
             self->active_tool == TOOL_RESHUFFLE_FREE_HAND ||
             self->active_tool == TOOL_REPLACE_RECTANGLE || 
             self->active_tool == TOOL_REPLACE_FREE_HAND) && 
-            self->zones->size() >= 0)
+            self->zones->size() > 0)
         {
             self->zones->back()->finalize();
         }
@@ -322,9 +334,15 @@ void PatchMatchApp::cb_motion_notify(GtkWidget *widget, GdkEvent *event, gpointe
             self->active_tool == TOOL_RESHUFFLE_FREE_HAND ||
             self->active_tool == TOOL_REPLACE_RECTANGLE || 
             self->active_tool == TOOL_REPLACE_FREE_HAND) && 
-            self->zones->size() >= 0)
+            self->zones->size() > 0)
         {
             self->zones->back()->extend(e->x/self->scale, e->y/self->scale);
+            gtk_widget_queue_draw(self->drawing_area);
+        }
+        else if(self->active_tool == TOOL_LINE &&
+            self->lines->size() > 0)
+        {
+            self->lines->back()->extend(e->x/self->scale, e->y/self->scale);
             gtk_widget_queue_draw(self->drawing_area);
         }
     }
@@ -357,6 +375,10 @@ void PatchMatchApp::cb_toolbar_clicked(GtkWidget* widget, gpointer app)
     {
         self->active_tool = TOOL_REPLACE_FREE_HAND;
     }
+    else if(widget == self->tool_line)
+    {
+        self->active_tool = TOOL_LINE;
+    }
     else if(widget == self->tool_retarget)
     {
         gtk_spin_button_set_value(GTK_SPIN_BUTTON(self->retarget_xscale), self->xscale);
@@ -367,7 +389,7 @@ void PatchMatchApp::cb_toolbar_clicked(GtkWidget* widget, gpointer app)
     {
         if(self->source != NULL && self->target != NULL)
         {
-            self->algo.run(self->source, self->target, self->zones, self->xscale, self->yscale);
+            self->algo.run(self->source, self->target, self->zones, self->lines, self->xscale, self->yscale);
             self->xscale = 1.0;
             self->yscale = 1.0;
             gtk_button_set_label(GTK_BUTTON(self->progress_cancel), "Cancel");

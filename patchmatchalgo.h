@@ -9,6 +9,7 @@
 #include <gtk/gtk.h>
 #include <gdk-pixbuf/gdk-pixbuf.h>
 #include "zone.h"
+#include "line.h"
 
 class PatchMatchAlgo
 {
@@ -20,14 +21,16 @@ public:
     int em_iteration;
     int patchmatch_iteration;
     int patch_w;
+    double threshold;
     GThread *thread;
     cairo_surface_t *source;
     cairo_surface_t *target;
     cairo_surface_t *reconstructed;
     std::vector<Zone*> *zones;
+    std::vector<Line*> *lines;
 
     PatchMatchAlgo();
-    void run(cairo_surface_t *source, cairo_surface_t *target, std::vector<Zone*> *zones, double xscale, double yscale);
+    void run(cairo_surface_t *source, cairo_surface_t *target, std::vector<Zone*> *zones, std::vector<Line*> *lines, double xscale, double yscale);
     float getProgress()
     {
         if(work_done != 0)
@@ -48,6 +51,7 @@ inline void rescaleANN(cairo_surface_t *source, cairo_surface_t *target, int **a
 inline void patchVoting(cairo_surface_t *source, cairo_surface_t *target, std::vector<Zone*> *zones, int **annx, int **anny, int patch_w);
 inline void patchMatch(cairo_surface_t *source, cairo_surface_t *target, std::vector<Zone*> *zones, int **annx, int **anny, int **annd, int patch_w, int iter, int scale);
 inline void enforceFixedZone(cairo_surface_t *source, cairo_surface_t *target, std::vector<Zone*> *zones, int scale);
+inline void enforceLineConstraints(int **annx, int **anny, std::vector<Line*> *lines, int width, int height, int patch_w, int scale, double threshold);
 inline bool isReplaceSatisfied(std::vector<Zone*> *zones, int sx, int sy, int tx, int ty, int patch_w, int scale);
 
 #endif

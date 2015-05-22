@@ -1,4 +1,3 @@
-#include "patchmatchapp.h"
 #include "patchmatchalgo.h"
 
 PatchMatchAlgo::PatchMatchAlgo()
@@ -6,6 +5,7 @@ PatchMatchAlgo::PatchMatchAlgo()
     em_iteration = 8;
     patchmatch_iteration = 5;
     patch_w = 7;
+    threshold = 64;
     thread = NULL;
     source = NULL;
     target = NULL;
@@ -13,7 +13,7 @@ PatchMatchAlgo::PatchMatchAlgo()
     zones = NULL;
 }
 
-void PatchMatchAlgo::run(cairo_surface_t *source, cairo_surface_t *target, std::vector<Zone*> *zones, double xscale, double yscale)
+void PatchMatchAlgo::run(cairo_surface_t *source, cairo_surface_t *target, std::vector<Zone*> *zones, std::vector<Line*> *lines, double xscale, double yscale)
 {
     if(thread != NULL)
         return;
@@ -52,6 +52,7 @@ void PatchMatchAlgo::run(cairo_surface_t *source, cairo_surface_t *target, std::
     cairo_destroy(cr);
 
     this->zones = new std::vector<Zone*>(*zones);
+    this->lines = new std::vector<Line*>(*lines);
     this->terminate = false;
     thread = g_thread_new("patchmatch", PatchMatchAlgo::threadFunction, this);
 }
@@ -111,6 +112,7 @@ gpointer PatchMatchAlgo::threadFunction(gpointer data)
         for(int i = 0; i < self->em_iteration && !self->terminate; i++)
         {
             patchMatch(source_scaled, target_scaled, self->zones, annx, anny, annd, self->patch_w, self->patchmatch_iteration, scale);
+            enforceLineConstraints(annx, anny, self->lines, target_width, target_height, self->patch_w, scale, self->threshold);
             patchVoting(source_scaled, target_scaled, self->zones, annx, anny, self->patch_w);
             if(scale != 1)
                 enforceFixedZone(self->source, target_scaled, self->zones, scale);
@@ -406,6 +408,14 @@ inline void enforceFixedZone(cairo_surface_t *source, cairo_surface_t *target, s
     }
     cairo_surface_flush(target);
     cairo_destroy(cr);
+}
+
+inline void enforceLineConstraints(int **annx, int **anny, std::vector<Line*> *lines, int width, int height, int patch_w, int scale, double threshold)
+{
+    for(unsigned int i = 0; i < lines->size(); i++)
+    {
+        lines->at(i)->applyLineConstraint(annx, anny, width/scale, height/scale, patch_w, scale, threshold);
+    }
 }
 
 inline bool isReplaceSatisfied(std::vector<Zone*> *zones, int sx, int sy, int tx, int ty, int patch_w, int scale)

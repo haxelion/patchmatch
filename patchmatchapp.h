@@ -8,6 +8,7 @@
 #include <gtk/gtk.h>
 #include <gdk-pixbuf/gdk-pixbuf.h>
 #include "zone.h"
+#include "line.h"
 #include "patchmatchalgo.h"
 
 enum TOOL
@@ -19,7 +20,7 @@ enum TOOL
     TOOL_RESHUFFLE_FREE_HAND,
     TOOL_REPLACE_RECTANGLE,
     TOOL_REPLACE_FREE_HAND,
-    TOOL_RETARGET
+    TOOL_LINE
 };
 
 struct Move
@@ -43,6 +44,7 @@ public:
     GtkWidget *tool_reshuffle_free;
     GtkWidget *tool_replace_rectangle;
     GtkWidget *tool_replace_free;
+    GtkWidget *tool_line;
     GtkWidget *tool_retarget;
     GtkWidget *tool_process;
     GtkWidget *drawing_area;
@@ -69,6 +71,7 @@ public:
     double scale, xscale, yscale;
     char *filename;
     std::vector<Zone*> *zones;
+    std::vector<Line*> *lines;
     bool button_pressed;
     TOOL active_tool;
     Move move;
