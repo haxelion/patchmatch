@@ -24,6 +24,7 @@ public:
     int dst_x, dst_y;
  
     Zone(int src_x, int src_y, ZONETYPE type);
+    virtual ~Zone();
     void move(int dx, int dy);
     virtual void extend(int x, int y);
     virtual void finalize();
@@ -38,6 +39,7 @@ public:
     cairo_surface_t *mask;
 
     MaskedZone(int src_x, int src_y, ZONETYPE type);
+    ~MaskedZone();
     void extend(int x, int y);
     void finalize();
     bool contains(int x, int y, int scale);

@@ -199,6 +199,7 @@
               <object class="GtkToolButton" id="tool_move">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
+                <property name="tooltip_text" translatable="yes">Move zones</property>
                 <property name="use_underline">True</property>
                 <property name="icon_widget">img-tool-move</property>
               </object>
@@ -211,6 +212,7 @@
               <object class="GtkToolButton" id="tool_delete">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
+                <property name="tooltip_text" translatable="yes">Delete zones</property>
                 <property name="use_underline">True</property>
                 <property name="icon_widget">img-tool-delete</property>
               </object>
@@ -269,6 +271,7 @@
               <object class="GtkToolButton" id="tool_replace_rectangle">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
+                <property name="tooltip_text" translatable="yes">Replace rectangle</property>
                 <property name="use_underline">True</property>
                 <property name="icon_widget">img-tool-rect-replace</property>
               </object>
@@ -281,6 +284,7 @@
               <object class="GtkToolButton" id="tool_replace_free">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
+                <property name="tooltip_text" translatable="yes">Replace free hand</property>
                 <property name="use_underline">True</property>
                 <property name="icon_widget">img-tool-free-replace</property>
               </object>
@@ -303,6 +307,7 @@
               <object class="GtkToolButton" id="tool_retarget">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
+                <property name="tooltip_text" translatable="yes">Retarget</property>
                 <property name="use_underline">True</property>
                 <property name="icon_widget">img-tool-retarget</property>
               </object>
@@ -325,6 +330,7 @@
               <object class="GtkToolButton" id="tool_process">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
+                <property name="tooltip_text" translatable="yes">Process with patchmatch</property>
                 <property name="icon_widget">img-tool-process</property>
               </object>
               <packing>
@@ -399,6 +405,7 @@
   </object>
   <object class="GtkDialog" id="retarget_dialog">
     <property name="can_focus">False</property>
+    <property name="title" translatable="yes">Retarget</property>
     <property name="resizable">False</property>
     <property name="modal">True</property>
     <property name="window_position">center-on-parent</property>

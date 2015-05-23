@@ -11,6 +11,10 @@ Zone::Zone(int src_x, int src_y, ZONETYPE type)
     this->type = type;
 }
 
+Zone::~Zone()
+{
+}
+
 void Zone::move(int dx, int dy)
 {
     dst_x += dx;
@@ -70,6 +74,11 @@ MaskedZone::MaskedZone(int src_x, int src_y, ZONETYPE type)
  : Zone(src_x, src_y, type)
 {
     edges.push_back(std::make_pair(src_x, src_y));
+}
+
+MaskedZone::~MaskedZone()
+{
+    cairo_surface_destroy(mask);
 }
 
 void MaskedZone::extend(int x, int y)
