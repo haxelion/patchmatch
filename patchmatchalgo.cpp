@@ -1,74 +1,29 @@
-#include "patchmatchapp.h"
 #include "patchmatchalgo.h"
 
-PatchMatchAlgo::PatchMatchAlgo()
+PatchMatchAlgo::PatchMatchAlgo(QImage *source, QImage *target, std::vector<Zone*> *zones, double xscale, double yscale, int patch_w, int patchmatch_iterations, int em_iterations)
 {
-    em_iteration = 8;
-    patchmatch_iteration = 5;
-    patch_w = 7;
-    thread = NULL;
-    source = NULL;
-    target = NULL;
-    reconstructed = NULL;
-    zones = NULL;
-}
+    this->em_iterations = em_iterations;
+    this->patchmatch_iterations = patchmatch_iterations;
+    this->patch_w = patch_w;
+    canceled = false;
+    this->zones = new std::vector<Zone*>(*zones);
+    this->source = new QImage(*source);
+    this->target = new QImage(target->scaled(target->width()*xscale, target->height()*yscale, Qt::IgnoreAspectRatio, Qt::SmoothTransformation));
 
-void PatchMatchAlgo::run(cairo_surface_t *source, cairo_surface_t *target, std::vector<Zone*> *zones, double xscale, double yscale)
-{
-    if(thread != NULL)
-        return;
-    if(this->source != NULL)
-        cairo_surface_destroy(this->source);
-    if(this->target != NULL)
-        cairo_surface_destroy(this->target);
-    if(this->zones != NULL)
-        delete this->zones;
-
-    this->source = cairo_image_surface_create(
-        CAIRO_FORMAT_RGB24, 
-        cairo_image_surface_get_width(source), 
-        cairo_image_surface_get_height(source));
-    cairo_t *cr = cairo_create(this->source);
-    cairo_set_source_surface(cr, source, 0, 0);
-    cairo_paint(cr);
-    cairo_surface_flush(this->source);
-    cairo_destroy(cr);
-
-    this->target = cairo_image_surface_create(
-        CAIRO_FORMAT_RGB24, 
-        cairo_image_surface_get_width(target)*xscale, 
-        cairo_image_surface_get_height(target)*yscale);
-    cr = cairo_create(this->target);
-    cairo_save(cr);
-    cairo_scale(cr, xscale, yscale);
-    cairo_set_source_surface(cr, target, 0, 0);
-    cairo_paint(cr);
-    cairo_restore(cr);
+    QPainter painter;
+    painter.begin(this->target);
+    painter.setRenderHint(QPainter::SmoothPixmapTransform, true);
     for(unsigned int i = 0; i < zones->size(); i++)
     {
-        zones->at(i)->draw(cr, source, 1, false);
+        if(zones->at(i)->type == FIXEDZONE)
+        {
+            zones->at(i)->draw(&painter, source, false);
+        }
     }
-    cairo_surface_flush(this->target);
-    cairo_destroy(cr);
+    painter.end();
 
-    this->zones = new std::vector<Zone*>(*zones);
-    this->terminate = false;
-    thread = g_thread_new("patchmatch", PatchMatchAlgo::threadFunction, this);
-}
-
-void PatchMatchAlgo::stop()
-{
-    this->terminate = true;
-}
-
-gpointer PatchMatchAlgo::threadFunction(gpointer data)
-{
-    PatchMatchAlgo *self = (PatchMatchAlgo*) data;
-    cairo_surface_t *source_scaled = NULL;
-    cairo_surface_t *target_scaled = NULL;
-    int target_height = cairo_image_surface_get_height(self->target);
-    int target_width = cairo_image_surface_get_width(self->target);
-    int **annx, **anny, **annd;
+    int target_height = this->target->height();
+    int target_width = this->target->width();
     annx = new int*[target_width];
     anny = new int*[target_width];
     annd = new int*[target_width];
@@ -78,55 +33,11 @@ gpointer PatchMatchAlgo::threadFunction(gpointer data)
         anny[i] = new int[target_height];
         annd[i] = new int[target_height];
     }
-    // Compute starting scale
-    int scale = 1 << (int)(log2(min(target_width, target_height)/self->patch_w)-1);
-    // Compute total work to be done (pixel count)
-    self->total_work = 0;
-    self->work_done = 0;
-    self->done = false;
-    for(int i = scale; i >= 1; i = i/2)
-    {
-        self->total_work += self->em_iteration * target_width/i * target_height/i;
-    }
-    bool first_loop = true;
-    while(scale >= 1 && !self->terminate)
-    {
-        if(source_scaled != NULL)
-            cairo_surface_destroy(source_scaled);
-        if(target_scaled != NULL)
-            cairo_surface_destroy(target_scaled);
-        target_scaled = scaleSurface(self->target, scale); 
-        source_scaled = scaleSurface(self->source, scale); 
-        if(first_loop)
-        {
-            first_loop = false;
-            randomANN(source_scaled, target_scaled, self->zones, annx, anny, annd, self->patch_w, scale);
-        }
-        else
-        {
-            rescaleANN(source_scaled, target_scaled, annx, anny, annd, self->patch_w);
-            patchVoting(source_scaled, target_scaled, self->zones, annx, anny, self->patch_w);
-            enforceFixedZone(self->source, target_scaled, self->zones, scale);
-        }
-        for(int i = 0; i < self->em_iteration && !self->terminate; i++)
-        {
-            patchMatch(source_scaled, target_scaled, self->zones, annx, anny, annd, self->patch_w, self->patchmatch_iteration, scale);
-            patchVoting(source_scaled, target_scaled, self->zones, annx, anny, self->patch_w);
-            if(scale != 1)
-                enforceFixedZone(self->source, target_scaled, self->zones, scale);
-            self->work_done += target_width/scale * target_height/scale;
-            // Atomic replacement of reconstructed pixbuf
-            cairo_surface_t *new_surface = scaleSurface(target_scaled, 1);
-            cairo_surface_t *old_surface = self->reconstructed;
-            self->reconstructed = new_surface;
-            cairo_surface_destroy(old_surface);
-        }
-        scale = scale >> 1;
-    }
-    self->done = true;
-    cairo_surface_destroy(source_scaled);
-    cairo_surface_destroy(target_scaled);
-    for(int i = 0; i < target_width; i++)
+}
+
+PatchMatchAlgo::~PatchMatchAlgo()
+{
+    for(int i = 0; i < target->width(); i++)
     {
         delete annx[i];
         delete anny[i];
@@ -135,57 +46,96 @@ gpointer PatchMatchAlgo::threadFunction(gpointer data)
     delete annx;
     delete anny;
     delete annd;
-    g_thread_unref(self->thread);
-    self->thread = NULL;
-    return NULL;
+    delete source;
+    delete target;
+    delete zones;
 }
 
-inline cairo_surface_t * scaleSurface(cairo_surface_t *surface, int scale)
+void PatchMatchAlgo::run()
 {
-    cairo_surface_t *scaled = cairo_image_surface_create(
-        CAIRO_FORMAT_RGB24, 
-        (cairo_image_surface_get_width(surface) + scale - 1)/scale, 
-        (cairo_image_surface_get_height(surface) + scale -1)/scale);
-    cairo_t *cr = cairo_create(scaled);
-    cairo_scale(cr, 1.0/scale, 1.0/scale);
-    cairo_set_source_surface(cr, surface, 0, 0);
-    cairo_paint(cr);
-    cairo_surface_flush(scaled);
-    cairo_destroy(cr);
-    return scaled;
+
+    QImage source_scaled, target_scaled;
+    int target_width = target->width();
+    int target_height = target->height();
+    int source_width = source->width();
+    int source_height = source->height();
+    // Compute starting scale
+    scale = 1 << (int)(log2(min(min(source_width, source_height),min(target_width, target_height))/patch_w)-1);
+    // Compute total work to be done (pixel count)
+    total_work = 0;
+    work_done = 0;
+    for(int i = scale; i >= 1; i = i/2)
+    {
+        total_work += em_iterations * target_width/i * target_height/i;
+    }
+    bool first_loop = true;
+    while(scale >= 1 && !canceled)
+    {
+        target_scaled = target->scaled(target_width/scale, target_height/scale, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+        source_scaled = source->scaled(source->width()/scale, source->height()/scale, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+        if(first_loop)
+        {
+            first_loop = false;
+            randomANN(&source_scaled, &target_scaled);
+        }
+        else
+        {
+            rescaleANN(&source_scaled, &target_scaled);
+            patchVoting(&source_scaled, &target_scaled);
+            enforceFixedZone(source, &target_scaled);
+        }
+        for(int i = 0; i < em_iterations && !canceled; i++)
+        {
+            patchMatch(&source_scaled, &target_scaled);
+            patchVoting(&source_scaled, &target_scaled);
+            if(scale != 1)
+                enforceFixedZone(source, &target_scaled);
+            work_done += target_width/scale * target_height/scale;
+            // Atomic replacement of reconstructed pixbuf
+            emit progressed(target_scaled);
+            emit progressed(work_done / total_work);
+        }
+        scale = scale >> 1;
+    }
+    emit finished();
 }
 
-inline int distance(cairo_surface_t *source, cairo_surface_t *target, int sx, int sy, int tx, int ty, int patch_w)
+void PatchMatchAlgo::stop()
+{
+    canceled = true;
+}
+
+inline int PatchMatchAlgo::distance(QImage *a, QImage *b, int ax, int ay, int bx, int by)
 {
     int d = 0;
-    int s_rowstride = cairo_image_surface_get_stride(source);
-    int t_rowstride = cairo_image_surface_get_stride(target);
-    unsigned char *s_p = cairo_image_surface_get_data(source);
-    unsigned char *t_p = cairo_image_surface_get_data(target);
-    s_p += sy*s_rowstride + sx*4;
-    t_p += ty*t_rowstride + tx*4;
+    int a_rowstride = a->bytesPerLine();
+    int b_rowstride = b->bytesPerLine();
+    unsigned char *a_p = a->bits();
+    unsigned char *b_p = b->bits();
+    a_p += ay*a_rowstride + ax*4;
+    b_p += by*b_rowstride + bx*4;
     for(int i = 0; i < patch_w; i++)
     {
         for(int j = 0; j < patch_w; j++)
         {
-            d += (s_p[0]-t_p[0])*(s_p[0]-t_p[0]) +
-                 (s_p[1]-t_p[1])*(s_p[1]-t_p[1]) +
-                 (s_p[2]-t_p[2])*(s_p[2]-t_p[2]);
-            s_p += 4;
-            t_p += 4;
+            d += (a_p[0]-b_p[0])*(a_p[0]-b_p[0]) +
+                 (a_p[1]-b_p[1])*(a_p[1]-b_p[1]) +
+                 (a_p[2]-b_p[2])*(a_p[2]-b_p[2]);
+            a_p += 4;
+            b_p += 4;
         }
-        s_p += s_rowstride - patch_w*4;
-        t_p += t_rowstride - patch_w*4;
+        a_p += a_rowstride - patch_w*4;
+        b_p += b_rowstride - patch_w*4;
     }
     return d;
 }
 
-inline void randomANN(cairo_surface_t *source, cairo_surface_t *target, std::vector<Zone*> *zones, int **annx, int **anny, int **annd, int patch_w, int scale)
+inline void PatchMatchAlgo::randomANN(QImage *source, QImage *target)
 {
-    int target_height = cairo_image_surface_get_height(target) - patch_w;
-    int target_width = cairo_image_surface_get_width(target) - patch_w;
-    int source_height = cairo_image_surface_get_height(source) - patch_w;
-    int source_width = cairo_image_surface_get_width(source) - patch_w;
+    int target_height = target->height() - patch_w;
+    int target_width = target->width() - patch_w;
+    int source_height = source->height() - patch_w;
+    int source_width = source->width() - patch_w;
 
     srand(time(NULL));
 
@@ -197,42 +147,44 @@ inline void randomANN(cairo_surface_t *source, cairo_surface_t *target, std::vec
                 annx[i][j] = rand()%source_width;
                 anny[i][j] = rand()%source_height;
             }
-            while(!isReplaceSatisfied(zones, i, j, annx[i][j], anny[i][j], patch_w, scale));
-            annd[i][j] = distance(source, target, annx[i][j], anny[i][j], i, j, patch_w);
+            while(!isReplaceSatisfied(i, j, annx[i][j], anny[i][j]));
+            annd[i][j] = distance(source, target, annx[i][j], anny[i][j], i, j);
         }
 }
 
-inline void rescaleANN(cairo_surface_t *source, cairo_surface_t *target, int **annx, int **anny, int **annd, int patch_w)
+inline void PatchMatchAlgo::rescaleANN(QImage *source, QImage *target)
 {
-    int target_height = cairo_image_surface_get_height(target) - patch_w;
-    int target_width = cairo_image_surface_get_width(target) - patch_w;
-    int source_height = cairo_image_surface_get_height(source) - patch_w;
-    int source_width = cairo_image_surface_get_width(source) - patch_w;
+    int target_height = target->height() - patch_w;
+    int target_width = target->width() - patch_w;
+    int source_height = source->height() - patch_w;
+    int source_width = source->width() - patch_w;
+    int inner_width = (target->width()/2 - patch_w)*2;
+    int inner_height = (target->height()/2 - patch_w)*2;
 
-    for(int i = target_width - patch_w - 1; i >= 0; i--)
-        for(int j = target_height - patch_w - 1; j >= 0; j--)
+    for(int i = inner_width-1; i >= 0; i--)
+        for(int j = inner_height-1; j >= 0; j--)
         {
                     annx[i][j] = 2*annx[i/2][j/2] + i%2;
                     anny[i][j] = 2*anny[i/2][j/2] + j%2;
                     annd[i][j] = INT_MAX;
         }
 
-    for(int i = 1; i <= patch_w; i++)
-        for(int j = 0; j < target_height - patch_w; j++)
+    for(int i = target_width - inner_width; i >= 1; i--)
+        for(int j = 0; j < inner_height; j++)
         {
             annx[target_width-i][j] = min(source_width, annx[target_width-i-patch_w][j]+patch_w);
             anny[target_width-i][j] = min(source_height, anny[target_width-i-patch_w][j]);
             annd[target_width-i][j] = INT_MAX;
         }
-    for(int i = 0; i < target_width - patch_w; i++)
-        for(int j = 1; j <= patch_w; j++)
+    for(int i = 0; i < inner_width; i++)
+        for(int j = target_height - inner_height; j >= 1; j--)
         {
             annx[i][target_height-j] = min(source_width, annx[i][target_height-j-patch_w]);
             anny[i][target_height-j] = min(source_height, anny[i][target_height-j-patch_w] + patch_w);
             annd[i][target_height-j] = INT_MAX;
         }
-    for(int i = 1; i <= patch_w; i++)
-        for(int j = 1; j <= patch_w; j++)
+    for(int i = target_width - inner_width; i >= 1; i--)
+        for(int j = target_height - inner_height; j >= 1; j--)
         {
             annx[target_width-i][target_height-j] = min(source_width, annx[target_width-i-patch_w][target_height-j-patch_w] + patch_w);
             anny[target_width-i][target_height-j] = min(source_height, anny[target_width-i-patch_w][target_height-j-patch_w] + patch_w);
@@ -240,15 +192,15 @@ inline void rescaleANN(cairo_surface_t *source, cairo_surface_t *target, int **a
         }
 }
 
-inline void patchVoting(cairo_surface_t *source, cairo_surface_t *target, std::vector<Zone*> *zones, int **annx, int **anny, int patch_w)
+inline void PatchMatchAlgo::patchVoting(QImage *source, QImage *target)
 {
-    int s_rowstride = cairo_image_surface_get_stride(source);
-    int t_rowstride = cairo_image_surface_get_stride(target);
-    int target_height = cairo_image_surface_get_height(target);
-    int target_width = cairo_image_surface_get_width(target);
+    int s_rowstride = source->bytesPerLine();
+    int t_rowstride = target->bytesPerLine();
+    unsigned char *s_pixels = source->bits();
+    unsigned char *t_pixels = target->bits();
+    int target_height = target->height();
+    int target_width = target->width();
 
-    unsigned char *s_pixels = cairo_image_surface_get_data(source);
-    unsigned char *t_pixels = cairo_image_surface_get_data(target);
     int *votes = new int[target_width * target_height * 3];
     int *nvotes = new int[target_width * target_height];
 
@@ -261,6 +213,7 @@ inline void patchVoting(cairo_surface_t *source, cairo_surface_t *target, std::v
     // Perform patch voting
     for(int i = 0; i < target_width - patch_w; i++)
         for(int j = 0; j < target_height - patch_w; j++)
+        {
             for(int k = 0; k < patch_w; k++)
                 for(int l = 0; l < patch_w; l++)
                 {
@@ -271,6 +224,7 @@ inline void patchVoting(cairo_surface_t *source, cairo_surface_t *target, std::v
                     v[2] += s_p[2];
                     nvotes[(j+l)*target_width + i + k]++;
                 }
+        }
 
     // Average voting results
     for(int i = 0; i < target_width; i++)
@@ -288,14 +242,14 @@ inline void patchVoting(cairo_surface_t *source, cairo_surface_t *target, std::v
         }
 }
 
-inline void patchMatch(cairo_surface_t *source, cairo_surface_t *target, std::vector<Zone*> *zones, int **annx, int **anny, int **annd, int patch_w, int iter, int scale)
+inline void PatchMatchAlgo::patchMatch(QImage *source, QImage *target)
 {
-    int target_height = cairo_image_surface_get_height(target);
-    int target_width = cairo_image_surface_get_width(target);
-    int source_height = cairo_image_surface_get_height(source);
-    int source_width = cairo_image_surface_get_width(source);
+    int target_height = target->height();
+    int target_width = target->width();
+    int source_height = source->height();
+    int source_width = source->width();
 
-    for(int i = 0; i < iter; i++)
+    for(int i = 0; i < patchmatch_iterations; i++)
     {
         int xstart, xend, xchange;
         int ystart, yend, ychange;
@@ -331,9 +285,9 @@ inline void patchMatch(cairo_surface_t *source, cairo_surface_t *target, std::ve
                     int xp = annx[x-xchange][y] + xchange;
                     int yp = anny[x-xchange][y];
                     if(xp < source_width - patch_w && xp >= 0 && 
-                       isReplaceSatisfied(zones, x, y, xp, yp, patch_w, scale))
+                       isReplaceSatisfied(x, y, xp, yp))
                     {
-                        int d = distance(source, target, xp, yp, x, y, patch_w);
+                        int d = distance(source, target, xp, yp, x, y);
                         if(d < dbest)
                         {
                             xbest = xp;
@@ -348,9 +302,9 @@ inline void patchMatch(cairo_surface_t *source, cairo_surface_t *target, std::ve
                     int xp = annx[x][y - ychange];
                     int yp = anny[x][y - ychange] + ychange;
                     if(yp < source_height - patch_w && yp >= 0 && 
-                       isReplaceSatisfied(zones, x, y, xp, yp, patch_w, scale))
+                       isReplaceSatisfied(x, y, xp, yp))
                     {
-                        int d = distance(source, target, xp, yp, x, y, patch_w);
+                        int d = distance(source, target, xp, yp, x, y);
                         if(d < dbest)
                         {
                             xbest = xp;
@@ -374,8 +328,8 @@ inline void patchMatch(cairo_surface_t *source, cairo_surface_t *target, std::ve
                         xp = xmin + rand()%(xmax - xmin);
                         yp = ymin + rand()%(ymax - ymin);
                     }
-                    while(!isReplaceSatisfied(zones, x, y, xp, yp, patch_w, scale));
-                    int d = distance(source, target, xp, yp, x, y, patch_w);
+                    while(!isReplaceSatisfied(x, y, xp, yp));
+                    int d = distance(source, target, xp, yp, x, y);
                     if(d < dbest)
                     {
                         xbest = xp;
@@ -393,22 +347,24 @@ inline void patchMatch(cairo_surface_t *source, cairo_surface_t *target, std::ve
     }
 }
 
-inline void enforceFixedZone(cairo_surface_t *source, cairo_surface_t *target, std::vector<Zone*> *zones, int scale)
+inline void PatchMatchAlgo::enforceFixedZone(QImage *source, QImage *target)
 {
     // Enforce fixed zone constraints
-    cairo_t *cr = cairo_create(target);
+    QPainter painter;
+    painter.begin(target);
+    painter.setRenderHint(QPainter::SmoothPixmapTransform, true);
+    painter.scale(1.0/scale, 1.0/scale);
     for(unsigned int i = 0; i < zones->size(); i++)
     {
         if(zones->at(i)->type == FIXEDZONE)
         {
-            zones->at(i)->draw(cr, source, scale, false);
+            zones->at(i)->draw(&painter, source, false);
         }
     }
-    cairo_surface_flush(target);
-    cairo_destroy(cr);
+    painter.end();
 }
 
-inline bool isReplaceSatisfied(std::vector<Zone*> *zones, int sx, int sy, int tx, int ty, int patch_w, int scale)
+inline bool PatchMatchAlgo::isReplaceSatisfied(int sx, int sy, int tx, int ty)
 {
     for(unsigned int i = 0; i < zones->size(); i++)
     {
