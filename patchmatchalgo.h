@@ -8,7 +8,6 @@
 #include <ctime>
 #include <vector>
 #include "zone.h"
-#include "line.h"
 
 class PatchMatchAlgo : public QThread
 {
@@ -32,7 +31,6 @@ private:
     QImage *target;
     int **annx, **anny, **annd;
     std::vector<Zone*> *zones;
-    std::vector<Line*> *lines;
 
     inline int distance(QImage *a, QImage *b, int ax, int ay, int bx, int by);
     inline void randomANN(QImage *source, QImage *target);
