@@ -1,0 +1,12 @@
+<RCC>
+    <qresource prefix="/icons">
+        <file>icons/tool-move.png</file>
+        <file>icons/tool-delete.png</file>
+        <file>icons/tool-free-select.png</file>
+        <file>icons/tool-free-select2.png</file>
+        <file>icons/tool-rect-select.png</file>
+        <file>icons/tool-rect-select2.png</file>
+        <file>icons/tool-retarget.png</file>
+        <file>icons/process.png</file>
+    </qresource>
+</RCC>

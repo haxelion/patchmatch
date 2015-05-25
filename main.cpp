@@ -1,13 +1,11 @@
-#include <gtk/gtk.h>
-#include <stdio.h>
-#include "patchmatchapp.h"
+#include "mainwindow.h"
+#include <QApplication>
 
-int main(int argc, char **argv)
+int main(int argc, char *argv[])
 {
-    PatchMatchApp *patchmatchapp;
-    gtk_init(&argc, &argv);
-    patchmatchapp = new PatchMatchApp();
-    gtk_main();
-    delete patchmatchapp;
-    return 0;
+    QApplication a(argc, argv);
+    MainWindow w;
+    w.show();
+
+    return a.exec();
 }

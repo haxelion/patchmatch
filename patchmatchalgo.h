@@ -1,57 +1,54 @@
 #ifndef PATCHMATCHALGO_H
 #define PATCHMATCHALGO_H
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
-#include <time.h>
+#include <QThread>
+#include <cstdio>
+#include <cstdlib>
+#include <cmath>
+#include <ctime>
 #include <vector>
-#include <gtk/gtk.h>
-#include <gdk-pixbuf/gdk-pixbuf.h>
 #include "zone.h"
 #include "line.h"
 
-class PatchMatchAlgo
+class PatchMatchAlgo : public QThread
 {
+    Q_OBJECT
+
 public:
-    bool done;
-    bool terminate;
+    bool canceled;
+
+    PatchMatchAlgo(QImage *source, QImage *target, std::vector<Zone*> *zones, double xscale, double yscale, int patch_w, int patchmatch_iterations, int em_iterations);
+    ~PatchMatchAlgo();
+    void run();
+
+private:
     float total_work;
     float work_done;
-    int em_iteration;
-    int patchmatch_iteration;
+    int em_iterations;
+    int patchmatch_iterations;
     int patch_w;
-    double threshold;
-    GThread *thread;
-    cairo_surface_t *source;
-    cairo_surface_t *target;
-    cairo_surface_t *reconstructed;
+    int scale;
+    QImage *source;
+    QImage *target;
+    int **annx, **anny, **annd;
     std::vector<Zone*> *zones;
     std::vector<Line*> *lines;
 
-    PatchMatchAlgo();
-    void run(cairo_surface_t *source, cairo_surface_t *target, std::vector<Zone*> *zones, std::vector<Line*> *lines, double xscale, double yscale);
-    float getProgress()
-    {
-        if(work_done != 0)
-            return work_done / total_work; 
-        else
-            return 0;
-    }
-    bool isDone() { return done; }
-    cairo_surface_t* getResult() { return reconstructed; }
-    static gpointer threadFunction(gpointer data);
+    inline int distance(QImage *a, QImage *b, int ax, int ay, int bx, int by);
+    inline void randomANN(QImage *source, QImage *target);
+    inline void rescaleANN(QImage *source, QImage *target);
+    inline void patchVoting(QImage *source, QImage *target);
+    inline void patchMatch(QImage *source, QImage *target);
+    inline void enforceFixedZone(QImage *source, QImage *target);
+    inline bool isReplaceSatisfied(int sx, int sy, int tx, int ty);
+
+signals:
+    void progressed(double progress);
+    void progressed(QImage progress);
+    void finished();
+
+public slots:
     void stop();
 };
-
-inline int distance(cairo_surface_t *source_scaled, cairo_surface_t *target, int sx, int sy, int tx, int ty, int patch_w);
-inline cairo_surface_t * scaleSurface(cairo_surface_t *surface, int scale);
-inline void randomANN(cairo_surface_t *source, cairo_surface_t *target, std::vector<Zone*> *zones, int **annx, int **anny, int **annd, int patch_w, int scale);
-inline void rescaleANN(cairo_surface_t *source, cairo_surface_t *target, int **annx, int **anny, int **annd, int patch_w);
-inline void patchVoting(cairo_surface_t *source, cairo_surface_t *target, std::vector<Zone*> *zones, int **annx, int **anny, int patch_w);
-inline void patchMatch(cairo_surface_t *source, cairo_surface_t *target, std::vector<Zone*> *zones, int **annx, int **anny, int **annd, int patch_w, int iter, int scale);
-inline void enforceFixedZone(cairo_surface_t *source, cairo_surface_t *target, std::vector<Zone*> *zones, int scale);
-inline void enforceLineConstraints(int **annx, int **anny, std::vector<Line*> *lines, int width, int height, int patch_w, int scale, double threshold);
-inline bool isReplaceSatisfied(std::vector<Zone*> *zones, int sx, int sy, int tx, int ty, int patch_w, int scale);
 
 #endif
