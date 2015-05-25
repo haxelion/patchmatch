@@ -164,11 +164,10 @@ void MainWindow::on_actionProcess_triggered()
 
 void MainWindow::onWorkerProgress(QImage progress)
 {
-    delete target;
     image_view->setImages(NULL, NULL);
+    delete target;
     target = new QImage(progress);
     image_view->setImages(source, target);
-    image_view->update();
 }
 
 void MainWindow::onWorkerFinished()
@@ -183,7 +182,6 @@ void MainWindow::onWorkerFinished()
         delete target;
         target = new QImage(*source);
         image_view->setImages(source, target);
-        image_view->update();
     }
     else
     {
@@ -197,7 +195,6 @@ void MainWindow::onWorkerFinished()
         xscale = 1.0;
         yscale = 1.0;
         image_view->setRetargetScales(xscale, yscale);
-        image_view->update();
     }
     delete worker;
 }
@@ -222,7 +219,6 @@ void MainWindow::on_actionRetarget_triggered()
         xscale = retarget_dialog->getXscale();
         yscale = retarget_dialog->getYscale();
         image_view->setRetargetScales(xscale, yscale);
-        image_view->update();
     }
     retarget_dialog->deleteLater();
 }

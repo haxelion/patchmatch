@@ -35,8 +35,8 @@ public:
     ~ImageView();
     QSize sizeHint() const {return QSize(200, 200);}
     QSize minimumSizeHint() const {return QSize(200, 200);}
-    void setImages(QImage *source, QImage *target) {this->source = source;  this->target = target;}
-    void setRetargetScales(double xscale, double yscale) {this->xscale = xscale; this->yscale = yscale;}
+    void setImages(QImage *source, QImage *target);
+    void setRetargetScales(double xscale, double yscale);
     void setZones(std::vector<Zone*> *zones){this->zones = zones;}
     void setActiveTool(Tool tool) {active_tool = tool; dragging = false;}
     void setWorking(bool working) {this->working = working;}

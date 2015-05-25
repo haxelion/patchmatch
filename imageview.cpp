@@ -17,6 +17,20 @@ ImageView::~ImageView()
     delete painter;
 }
 
+void ImageView::setImages(QImage *source, QImage *target)
+{
+    this->source = source;
+    this->target = target;
+    update();
+}
+
+void ImageView::setRetargetScales(double xscale, double yscale)
+{
+    this->xscale = xscale;
+    this->yscale = yscale;
+    update();
+}
+
 void ImageView::paintEvent(QPaintEvent *event)
 {
     painter->begin(this);
@@ -57,7 +71,7 @@ void ImageView::mouseMoveEvent(QMouseEvent * event)
             active_tool == TOOL_RESHUFFLE_FREE_HAND ||
             active_tool == TOOL_REPLACE_RECTANGLE ||
             active_tool == TOOL_REPLACE_FREE_HAND) &&
-            zones->size() >= 0)
+            zones->size() > 0)
         {
             zones->back()->extend(event->x()/scale, event->y()/scale);
             update();
@@ -131,7 +145,7 @@ void ImageView::mouseReleaseEvent(QMouseEvent * event)
             active_tool == TOOL_RESHUFFLE_FREE_HAND ||
             active_tool == TOOL_REPLACE_RECTANGLE ||
             active_tool == TOOL_REPLACE_FREE_HAND) &&
-            zones->size() >= 0)
+            zones->size() > 0)
         {
             zones->back()->finalize();
             update();
